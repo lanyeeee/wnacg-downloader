@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager};
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
+    pub cookie: String,
     pub download_dir: PathBuf,
     pub enable_file_logger: bool,
 }
@@ -64,6 +65,7 @@ impl Config {
 
     fn default(app_data_dir: &Path) -> Config {
         Config {
+            cookie: String::new(),
             download_dir: app_data_dir.join("漫画下载"),
             enable_file_logger: true,
         }

@@ -10,6 +10,14 @@ async greet(name: string) : Promise<string> {
 },
 async getConfig() : Promise<Config> {
     return await TAURI_INVOKE("get_config");
+},
+async login(username: string, password: string) : Promise<Result<string, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("login", { username, password }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -28,7 +36,8 @@ logEvent: "log-event"
 
 /** user-defined types **/
 
-export type Config = { downloadDir: string; enableFileLogger: boolean }
+export type CommandError = { err_title: string; err_message: string }
+export type Config = { cookie: string; downloadDir: string; enableFileLogger: boolean }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type LogEvent = { timestamp: string; level: LogLevel; fields: Partial<{ [key in string]: JsonValue }>; target: string; filename: string; line_number: number }
 export type LogLevel = "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR"

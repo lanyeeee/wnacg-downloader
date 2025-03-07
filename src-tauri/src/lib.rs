@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod extensions;
 
 use anyhow::Context;
 use config::Config;

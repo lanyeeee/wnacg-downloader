@@ -12,5 +12,7 @@ pub fn greet(name: &str) -> String {
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
 pub fn get_config(config: tauri::State<RwLock<Config>>) -> Config {
-    config.read().clone()
+    let config = config.read().clone();
+    tracing::debug!("获取配置成功");
+    config
 }

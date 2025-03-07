@@ -2,9 +2,7 @@ use parking_lot::RwLock;
 use tauri::State;
 
 use crate::{
-    config::Config,
-    errors::{CommandError, CommandResult},
-    wnacg_client::WnacgClient,
+    config::Config, errors::{CommandError, CommandResult}, types::UserProfile, wnacg_client::WnacgClient
 };
 
 #[tauri::command]
@@ -35,4 +33,15 @@ pub async fn login(
         .map_err(|err| CommandError::from("登录失败", err))?;
     tracing::debug!("登录成功");
     Ok(cookie)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_user_profile(wnacg_client: State<'_, WnacgClient>) -> CommandResult<UserProfile> {
+    let user_profile = wnacg_client
+        .get_user_profile()
+        .await
+        .map_err(|err| CommandError::from("获取用户信息失败", err))?;
+    tracing::debug!("获取用户信息成功");
+    Ok(user_profile)
 }

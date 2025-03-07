@@ -18,6 +18,14 @@ async login(username: string, password: string) : Promise<Result<string, Command
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getUserProfile() : Promise<Result<UserProfile, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_user_profile") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -41,6 +49,15 @@ export type Config = { cookie: string; downloadDir: string; enableFileLogger: bo
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type LogEvent = { timestamp: string; level: LogLevel; fields: Partial<{ [key in string]: JsonValue }>; target: string; filename: string; line_number: number }
 export type LogLevel = "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR"
+export type UserProfile = { 
+/**
+ * 用户名
+ */
+username: string; 
+/**
+ * 头像url
+ */
+avatar: string }
 
 /** tauri-specta globals **/
 

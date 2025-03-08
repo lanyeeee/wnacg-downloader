@@ -101,3 +101,18 @@ pub async fn search_by_keyword(
     tracing::debug!("关键词搜索成功");
     Ok(search_result)
 }
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn search_by_tag(
+    wnacg_client: State<'_, WnacgClient>,
+    tag_name: String,
+    page_num: i64,
+) -> CommandResult<SearchResult> {
+    let search_result = wnacg_client
+        .search_by_tag(&tag_name, page_num)
+        .await
+        .map_err(|err| CommandError::from("按标签搜索失败", err))?;
+    tracing::debug!("标签搜索成功");
+    Ok(search_result)
+}

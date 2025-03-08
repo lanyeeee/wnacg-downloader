@@ -42,6 +42,14 @@ async searchByKeyword(keyword: string, pageNum: number) : Promise<Result<SearchR
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async searchByTag(tagName: string, pageNum: number) : Promise<Result<SearchResult, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("search_by_tag", { tagName, pageNum }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

@@ -118,6 +118,23 @@ impl WnacgClient {
             SearchResult::from_html(&self.app, &body, false).context("将html转换为搜索结果失败")?;
         Ok(search_result)
     }
+
+    pub async fn search_by_tag(
+        &self,
+        tag_name: &str,
+        page_num: i64,
+    ) -> anyhow::Result<SearchResult> {
+        let url = format!("https://www.wn01.uk/albums-index-page-{page_num}-tag-{tag_name}.html");
+        let http_resp = self.api_client.get(url).send().await?;
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("预料之外的状态码({status}): {body}"));
+        }
+        let search_result =
+            SearchResult::from_html(&self.app, &body, true).context("将html转换为搜索结果失败")?;
+        Ok(search_result)
+    }
 }
 
 fn create_api_client() -> ClientWithMiddleware {

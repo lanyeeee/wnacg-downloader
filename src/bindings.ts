@@ -34,6 +34,14 @@ async getUserProfile() : Promise<Result<UserProfile, CommandError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async searchByKeyword(keyword: string, pageNum: number) : Promise<Result<SearchResult, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("search_by_keyword", { keyword, pageNum }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -52,11 +60,37 @@ logEvent: "log-event"
 
 /** user-defined types **/
 
+export type ComicInSearch = { 
+/**
+ * 漫画id
+ */
+id: number; 
+/**
+ * 漫画标题(带html标签，用于显示匹配关键词)
+ */
+titleHtml: string; 
+/**
+ * 漫画标题
+ */
+title: string; 
+/**
+ * 封面链接
+ */
+cover: string; 
+/**
+ * 额外信息(209張圖片， 創建於2025-01-05 18:33:19)
+ */
+additionalInfo: string; 
+/**
+ * 是否已下载
+ */
+isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
 export type Config = { cookie: string; downloadDir: string; enableFileLogger: boolean }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type LogEvent = { timestamp: string; level: LogLevel; fields: Partial<{ [key in string]: JsonValue }>; target: string; filename: string; line_number: number }
 export type LogLevel = "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR"
+export type SearchResult = { comics: ComicInSearch[]; currentPage: number; totalPage: number; isSearchByTag: boolean }
 export type UserProfile = { 
 /**
  * 用户名

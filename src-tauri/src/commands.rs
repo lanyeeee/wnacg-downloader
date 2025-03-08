@@ -5,7 +5,7 @@ use crate::{
     config::Config,
     errors::{CommandError, CommandResult},
     logger,
-    types::UserProfile,
+    types::{SearchResult, UserProfile},
     wnacg_client::WnacgClient,
 };
 
@@ -85,4 +85,19 @@ pub async fn get_user_profile(wnacg_client: State<'_, WnacgClient>) -> CommandRe
         .map_err(|err| CommandError::from("获取用户信息失败", err))?;
     tracing::debug!("获取用户信息成功");
     Ok(user_profile)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn search_by_keyword(
+    wnacg_client: State<'_, WnacgClient>,
+    keyword: String,
+    page_num: i64,
+) -> CommandResult<SearchResult> {
+    let search_result = wnacg_client
+        .search_by_keyword(&keyword, page_num)
+        .await
+        .map_err(|err| CommandError::from("关键词搜索失败", err))?;
+    tracing::debug!("关键词搜索成功");
+    Ok(search_result)
 }

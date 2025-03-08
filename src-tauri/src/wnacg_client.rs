@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Manager};
 
-use crate::{config::Config, types::UserProfile};
+use crate::{
+    config::Config,
+    types::{SearchResult, UserProfile},
+};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -86,6 +89,34 @@ impl WnacgClient {
         }
         let user_profile = UserProfile::from_html(&body).context("将body解析为UserProfile失败")?;
         Ok(user_profile)
+    }
+
+    pub async fn search_by_keyword(
+        &self,
+        keyword: &str,
+        page_num: i64,
+    ) -> anyhow::Result<SearchResult> {
+        let params = json!({
+            "q": keyword,
+            "syn": "yes",
+            "f": "_all",
+            "s": "create_time_DESC",
+            "p": page_num,
+        });
+        let http_resp = self
+            .api_client
+            .get("https://www.wn01.uk/search/index.php")
+            .query(&params)
+            .send()
+            .await?;
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("预料之外的状态码({status}): {body}"));
+        }
+        let search_result =
+            SearchResult::from_html(&self.app, &body, false).context("将html转换为搜索结果失败")?;
+        Ok(search_result)
     }
 }
 

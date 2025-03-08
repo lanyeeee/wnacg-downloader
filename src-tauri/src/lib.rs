@@ -5,6 +5,7 @@ mod events;
 mod extensions;
 mod logger;
 mod types;
+mod utils;
 mod wnacg_client;
 
 use anyhow::Context;
@@ -29,6 +30,7 @@ pub fn run() {
             save_config,
             login,
             get_user_profile,
+            search_by_keyword,
         ])
         .events(tauri_specta::collect_events![LogEvent]);
 

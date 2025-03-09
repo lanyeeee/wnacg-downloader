@@ -5,7 +5,7 @@ use crate::{
     config::Config,
     errors::{CommandError, CommandResult},
     logger,
-    types::{Comic, SearchResult, UserProfile},
+    types::{Comic, GetFavoriteResult, SearchResult, UserProfile},
     wnacg_client::WnacgClient,
 };
 
@@ -126,4 +126,19 @@ pub async fn get_comic(wnacg_client: State<'_, WnacgClient>, id: i64) -> Command
         .map_err(|err| CommandError::from("获取漫画失败", err))?;
     tracing::debug!("获取漫画成功");
     Ok(comic)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_favorite(
+    wnacg_client: State<'_, WnacgClient>,
+    shelf_id: i64,
+    page_num: i64,
+) -> CommandResult<GetFavoriteResult> {
+    let get_favorite_result = wnacg_client
+        .get_favorite(shelf_id, page_num)
+        .await
+        .map_err(|err| CommandError::from("获取收藏的漫画失败", err))?;
+    tracing::debug!("获取收藏夹成功");
+    Ok(get_favorite_result)
 }

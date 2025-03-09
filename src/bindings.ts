@@ -58,6 +58,14 @@ async getComic(id: number) : Promise<Result<Comic, CommandError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getFavorite(shelfId: number, pageNum: number) : Promise<Result<GetFavoriteResult, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_favorite", { shelfId, pageNum }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -113,6 +121,32 @@ isDownloaded?: boolean | null;
  * 图片列表
  */
 imgList: ImgList }
+export type ComicInFavorite = { 
+/**
+ * 漫画id
+ */
+id: number; 
+/**
+ * 漫画标题
+ */
+title: string; 
+/**
+ * 漫画封面链接
+ */
+cover: string; 
+/**
+ * 加入收藏的时间
+ * 2025-01-04 16:04:34
+ */
+favoriteTime: string; 
+/**
+ * 这个漫画属于的书架
+ */
+shelf: Shelf; 
+/**
+ * 是否已下载
+ */
+isDownloaded: boolean }
 export type ComicInSearch = { 
 /**
  * 漫画id
@@ -140,6 +174,7 @@ additionalInfo: string;
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
 export type Config = { cookie: string; downloadDir: string; enableFileLogger: boolean }
+export type GetFavoriteResult = { comics: ComicInFavorite[]; currentPage: number; totalPage: number; shelf: Shelf; shelves: Shelf[] }
 export type ImgInImgList = { 
 /**
  * 图片标题([01]、[001]，根据漫画总页数确定)
@@ -155,6 +190,15 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | Partial
 export type LogEvent = { timestamp: string; level: LogLevel; fields: Partial<{ [key in string]: JsonValue }>; target: string; filename: string; line_number: number }
 export type LogLevel = "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR"
 export type SearchResult = { comics: ComicInSearch[]; currentPage: number; totalPage: number; isSearchByTag: boolean }
+export type Shelf = { 
+/**
+ * 书架id
+ */
+id: number; 
+/**
+ * 书架名称
+ */
+name: string }
 export type Tag = { 
 /**
  * 标签名

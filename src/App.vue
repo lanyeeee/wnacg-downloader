@@ -8,7 +8,7 @@ const name = ref('')
 async function greet() {
   // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
   greetMsg.value = await commands.greet(name.value)
-  console.log(await commands.getComic(240532))
+  console.log(await commands.getFavorite(0, 1))
 }
 </script>
 

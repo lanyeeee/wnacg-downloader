@@ -11,7 +11,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{
     config::Config,
-    types::{Comic, ImgList, SearchResult, UserProfile},
+    types::{Comic, GetFavoriteResult, ImgList, SearchResult, UserProfile},
 };
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -185,6 +185,32 @@ impl WnacgClient {
             Comic::from_html(&self.app, &body, img_list).context("将body解析为Comic失败")?;
 
         Ok(comic)
+    }
+
+    pub async fn get_favorite(
+        &self,
+        shelf_id: i64,
+        page_num: i64,
+    ) -> anyhow::Result<GetFavoriteResult> {
+        let cookie = self.app.state::<RwLock<Config>>().read().cookie.clone();
+        // 发送获取收藏夹请求
+        let url = format!("https://www.wn01.uk/users-users_fav-page-{page_num}-c-{shelf_id}.html");
+        let http_resp = self
+            .api_client
+            .get(url)
+            .header("cookie", cookie)
+            .send()
+            .await?;
+        // 检查http响应状态码
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("预料之外的状态码({status}): {body}"));
+        }
+        // 解析html
+        let get_favorite_result = GetFavoriteResult::from_html(&self.app, &body)
+            .context("将body转换为GetFavoriteResult失败")?;
+        Ok(get_favorite_result)
     }
 }
 

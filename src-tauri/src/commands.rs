@@ -5,7 +5,7 @@ use crate::{
     config::Config,
     errors::{CommandError, CommandResult},
     logger,
-    types::{SearchResult, UserProfile},
+    types::{Comic, SearchResult, UserProfile},
     wnacg_client::WnacgClient,
 };
 
@@ -115,4 +115,15 @@ pub async fn search_by_tag(
         .map_err(|err| CommandError::from("按标签搜索失败", err))?;
     tracing::debug!("标签搜索成功");
     Ok(search_result)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_comic(wnacg_client: State<'_, WnacgClient>, id: i64) -> CommandResult<Comic> {
+    let comic = wnacg_client
+        .get_comic(id)
+        .await
+        .map_err(|err| CommandError::from("获取漫画失败", err))?;
+    tracing::debug!("获取漫画成功");
+    Ok(comic)
 }

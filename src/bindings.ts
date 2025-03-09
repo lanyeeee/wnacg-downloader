@@ -50,6 +50,14 @@ async searchByTag(tagName: string, pageNum: number) : Promise<Result<SearchResul
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getComic(id: number) : Promise<Result<Comic, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_comic", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -68,6 +76,43 @@ logEvent: "log-event"
 
 /** user-defined types **/
 
+export type Comic = { 
+/**
+ * 漫画id
+ */
+id: number; 
+/**
+ * 漫画标题
+ */
+title: string; 
+/**
+ * 封面链接
+ */
+cover: string; 
+/**
+ * 分类
+ */
+category: string; 
+/**
+ * 漫画有多少张图片
+ */
+imageCount: number; 
+/**
+ * 标签
+ */
+tags: Tag[]; 
+/**
+ * 简介
+ */
+intro: string; 
+/**
+ * 是否已下载
+ */
+isDownloaded?: boolean | null; 
+/**
+ * 图片列表
+ */
+imgList: ImgList }
 export type ComicInSearch = { 
 /**
  * 漫画id
@@ -95,10 +140,30 @@ additionalInfo: string;
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
 export type Config = { cookie: string; downloadDir: string; enableFileLogger: boolean }
+export type ImgInImgList = { 
+/**
+ * 图片标题([01]、[001]，根据漫画总页数确定)
+ */
+caption: string; 
+/**
+ * 图片url(//img5.wnimg.ru/data/2826/33/01.jpg，缺https:前缀)
+ * 最后一张图片为/themes/weitu/images/bg/shoucang.jpg，记得过滤
+ */
+url: string }
+export type ImgList = ImgInImgList[]
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type LogEvent = { timestamp: string; level: LogLevel; fields: Partial<{ [key in string]: JsonValue }>; target: string; filename: string; line_number: number }
 export type LogLevel = "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR"
 export type SearchResult = { comics: ComicInSearch[]; currentPage: number; totalPage: number; isSearchByTag: boolean }
+export type Tag = { 
+/**
+ * 标签名
+ */
+name: string; 
+/**
+ * 标签链接
+ */
+url: string }
 export type UserProfile = { 
 /**
  * 用户名

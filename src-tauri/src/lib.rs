@@ -32,6 +32,7 @@ pub fn run() {
             get_user_profile,
             search_by_keyword,
             search_by_tag,
+            get_comic,
         ])
         .events(tauri_specta::collect_events![LogEvent]);
 

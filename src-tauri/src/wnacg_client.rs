@@ -11,7 +11,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{
     config::Config,
-    types::{SearchResult, UserProfile},
+    types::{Comic, ImgList, SearchResult, UserProfile},
 };
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -134,6 +134,57 @@ impl WnacgClient {
         let search_result =
             SearchResult::from_html(&self.app, &body, true).context("将html转换为搜索结果失败")?;
         Ok(search_result)
+    }
+
+    pub async fn get_img_list(&self, id: i64) -> anyhow::Result<ImgList> {
+        let url = format!("https://www.wn01.uk/photos-gallery-aid-{id}.html");
+        let http_resp = self.api_client.get(url).send().await?;
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("预料之外的状态码({status}): {body}"));
+        }
+        // 找到包含`imglist`的行
+        let img_list_line = body
+            .lines()
+            .find(|line| line.contains("var imglist = "))
+            .context("没有找到包含`imglist`的行")?;
+        // 找到`imglist`行中的 JSON 部分的起始和结束位置
+        let start = img_list_line
+            .find('[')
+            .context("没有在`imglist`行中找到`[`")?;
+        let end = img_list_line
+            .rfind(']')
+            .context("没有在`imglist`行中找到`]`")?;
+        // 将 JSON 部分提取出来，并转为合法的 JSON 字符串
+        let json_str = &img_list_line[start..=end]
+            .replace("url:", "\"url\":")
+            .replace("caption:", "\"caption\":")
+            .replace("fast_img_host+", "")
+            .replace("\\\"", "\"");
+        // 将 JSON 字符串解析为 ImgList
+        let img_list =
+            serde_json::from_str::<ImgList>(json_str).context("将JSON字符串解析为ImgList失败")?;
+        Ok(img_list)
+    }
+
+    pub async fn get_comic(&self, id: i64) -> anyhow::Result<Comic> {
+        let http_resp = self
+            .api_client
+            .get(format!("https://www.wn01.uk/photos-index-aid-{id}.html"))
+            .send()
+            .await?;
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("预料之外的状态码({status}): {body}"));
+        }
+        // TODO: 可以并发获取body和img_list
+        let img_list = self.get_img_list(id).await?;
+        let comic =
+            Comic::from_html(&self.app, &body, img_list).context("将body解析为Comic失败")?;
+
+        Ok(comic)
     }
 }
 

@@ -3,6 +3,7 @@ use tauri::{AppHandle, State};
 
 use crate::{
     config::Config,
+    download_manager::DownloadManager,
     errors::{CommandError, CommandResult},
     logger,
     types::{Comic, GetFavoriteResult, SearchResult, UserProfile},
@@ -141,4 +142,54 @@ pub async fn get_favorite(
         .map_err(|err| CommandError::from("获取收藏的漫画失败", err))?;
     tracing::debug!("获取收藏夹成功");
     Ok(get_favorite_result)
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub fn create_download_task(download_manager: State<DownloadManager>, comic: Comic) {
+    download_manager.create_download_task(comic);
+    tracing::debug!("下载任务创建成功");
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub fn pause_download_task(
+    download_manager: State<DownloadManager>,
+    comic_id: i64,
+) -> CommandResult<()> {
+    download_manager
+        .pause_download_task(comic_id)
+        .map_err(|err| CommandError::from(&format!("暂停漫画ID为`{comic_id}`的下载任务"), err))?;
+    tracing::debug!("暂停漫画ID为`{comic_id}`的下载任务成功");
+    Ok(())
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub fn resume_download_task(
+    download_manager: State<DownloadManager>,
+    comic_id: i64,
+) -> CommandResult<()> {
+    download_manager
+        .resume_download_task(comic_id)
+        .map_err(|err| CommandError::from(&format!("恢复漫画ID为`{comic_id}`的下载任务"), err))?;
+    tracing::debug!("恢复漫画ID为`{comic_id}`的下载任务成功");
+    Ok(())
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub fn cancel_download_task(
+    download_manager: State<DownloadManager>,
+    comic_id: i64,
+) -> CommandResult<()> {
+    download_manager
+        .cancel_download_task(comic_id)
+        .map_err(|err| CommandError::from(&format!("取消漫画ID为`{comic_id}`的下载任务"), err))?;
+    tracing::debug!("取消漫画ID为`{comic_id}`的下载任务成功");
+    Ok(())
 }

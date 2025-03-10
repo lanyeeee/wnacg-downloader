@@ -66,6 +66,33 @@ async getFavorite(shelfId: number, pageNum: number) : Promise<Result<GetFavorite
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async createDownloadTask(comic: Comic) : Promise<void> {
+    await TAURI_INVOKE("create_download_task", { comic });
+},
+async pauseDownloadTask(comicId: number) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("pause_download_task", { comicId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async resumeDownloadTask(comicId: number) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("resume_download_task", { comicId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelDownloadTask(comicId: number) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("cancel_download_task", { comicId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -73,8 +100,12 @@ async getFavorite(shelfId: number, pageNum: number) : Promise<Result<GetFavorite
 
 
 export const events = __makeEvents__<{
+downloadSpeedEvent: DownloadSpeedEvent,
+downloadTaskEvent: DownloadTaskEvent,
 logEvent: LogEvent
 }>({
+downloadSpeedEvent: "download-speed-event",
+downloadTaskEvent: "download-task-event",
 logEvent: "log-event"
 })
 
@@ -173,7 +204,11 @@ additionalInfo: string;
  */
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { cookie: string; downloadDir: string; enableFileLogger: boolean }
+export type Config = { cookie: string; downloadDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat }
+export type DownloadFormat = "Jpeg" | "Png" | "Webp" | "Original"
+export type DownloadSpeedEvent = { speed: string }
+export type DownloadTaskEvent = { state: DownloadTaskState; comic: Comic; downloadedImgCount: number; totalImgCount: number }
+export type DownloadTaskState = "Pending" | "Downloading" | "Paused" | "Cancelled" | "Completed" | "Failed"
 export type GetFavoriteResult = { comics: ComicInFavorite[]; currentPage: number; totalPage: number; shelf: Shelf; shelves: Shelf[] }
 export type ImgInImgList = { 
 /**

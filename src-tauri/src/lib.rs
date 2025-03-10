@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod download_manager;
 mod errors;
 mod events;
 mod extensions;
@@ -10,7 +11,8 @@ mod wnacg_client;
 
 use anyhow::Context;
 use config::Config;
-use events::LogEvent;
+use download_manager::DownloadManager;
+use events::{DownloadSpeedEvent, DownloadTaskEvent, LogEvent};
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use wnacg_client::WnacgClient;
@@ -34,8 +36,16 @@ pub fn run() {
             search_by_tag,
             get_comic,
             get_favorite,
+            create_download_task,
+            pause_download_task,
+            resume_download_task,
+            cancel_download_task,
         ])
-        .events(tauri_specta::collect_events![LogEvent]);
+        .events(tauri_specta::collect_events![
+            LogEvent,
+            DownloadTaskEvent,
+            DownloadSpeedEvent,
+        ]);
 
     #[cfg(debug_assertions)]
     builder
@@ -67,6 +77,9 @@ pub fn run() {
 
             let wnacg_client = WnacgClient::new(app.handle().clone());
             app.manage(wnacg_client);
+
+            let download_manager = DownloadManager::new(app.handle());
+            app.manage(download_manager);
 
             logger::init(app.handle())?;
 

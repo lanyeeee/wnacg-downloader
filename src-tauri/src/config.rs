@@ -4,12 +4,15 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
 
+use crate::types::DownloadFormat;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     pub cookie: String,
     pub download_dir: PathBuf,
     pub enable_file_logger: bool,
+    pub download_format: DownloadFormat,
 }
 
 impl Config {
@@ -68,6 +71,7 @@ impl Config {
             cookie: String::new(),
             download_dir: app_data_dir.join("漫画下载"),
             enable_file_logger: true,
+            download_format: DownloadFormat::Jpeg,
         }
     }
 }

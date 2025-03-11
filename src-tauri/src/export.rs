@@ -1,10 +1,10 @@
 use std::{
     ffi::OsStr,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
 };
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use lopdf::{
     content::{Content, Operation},
     dictionary, Document, Object, Stream,
@@ -12,20 +12,108 @@ use lopdf::{
 use parking_lot::RwLock;
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
+use zip::{write::SimpleFileOptions, ZipWriter};
 
-use crate::{config::Config, events::ExportPdfEvent, types::Comic};
+use crate::{
+    config::Config,
+    events::{ExportCbzEvent, ExportPdfEvent},
+    types::{Comic, ComicInfo},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Archive {
+    Cbz,
     Pdf,
 }
 
 impl Archive {
     pub fn extension(self) -> &'static str {
         match self {
+            Archive::Cbz => "cbz",
             Archive::Pdf => "pdf",
         }
     }
+}
+
+#[allow(clippy::cast_possible_wrap)]
+#[allow(clippy::cast_possible_truncation)]
+pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
+    let comic_title = &comic.title.clone();
+    // 生成格式化的xml
+    let cfg = yaserde::ser::Config {
+        perform_indent: true,
+        ..Default::default()
+    };
+    let event_uuid = uuid::Uuid::new_v4().to_string();
+    // 发送开始导出cbz事件
+    let _ = ExportCbzEvent::Start {
+        uuid: event_uuid.clone(),
+        title: comic_title.clone(),
+    }
+    .emit(app);
+
+    let comic_download_dir = get_comic_download_dir(app, &comic);
+    let comic_export_dir = get_comic_export_dir(app, &comic);
+    // 生成ComicInfo
+    let comic_info = ComicInfo::from(comic);
+    // 序列化ComicInfo为xml
+    let comic_info_xml = yaserde::ser::to_string_with_config(&comic_info, &cfg)
+        .map_err(|err_msg| anyhow!("`{comic_title}`序列化`ComicInfo.xml`失败: {err_msg}"))?;
+    // 保证导出目录存在
+    std::fs::create_dir_all(&comic_export_dir)
+        .context(format!("`{comic_title}`创建目录`{comic_export_dir:?}`失败"))?;
+    // 创建cbz文件
+    let extension = Archive::Cbz.extension();
+    let zip_path = comic_export_dir.join(format!("{comic_title}.{extension}"));
+    let zip_file = std::fs::File::create(&zip_path)
+        .context(format!("`{comic_title}`创建文件`{zip_path:?}`失败"))?;
+    let mut zip_writer = ZipWriter::new(zip_file);
+    // 把ComicInfo.xml写入cbz
+    zip_writer
+        .start_file("ComicInfo.xml", SimpleFileOptions::default())
+        .context(format!(
+            "`{comic_title}在`{zip_path:?}`创建`ComicInfo.xml`失败"
+        ))?;
+    zip_writer
+        .write_all(comic_info_xml.as_bytes())
+        .context(format!("`{comic_title}`写入`ComicInfo.xml`失败"))?;
+    // 遍历下载目录，将文件写入cbz
+    let image_paths = std::fs::read_dir(&comic_download_dir)
+        .context(format!(
+            "`{comic_title}`读取目录`{comic_download_dir:?}`失败"
+        ))?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension() != Some(OsStr::new("json"))); // 过滤掉元数据.json文件;
+    for image_path in image_paths {
+        if !image_path.is_file() {
+            continue;
+        }
+
+        let filename = match image_path.file_name() {
+            Some(name) => name.to_string_lossy(),
+            None => continue,
+        };
+        // 将文件写入cbz
+        zip_writer
+            .start_file(&filename, SimpleFileOptions::default())
+            .context(format!(
+                "`{comic_title}在`{zip_path:?}`创建`{filename:?}`失败"
+            ))?;
+        let mut file =
+            std::fs::File::open(&image_path).context(format!("打开`{image_path:?}`失败"))?;
+        std::io::copy(&mut file, &mut zip_writer).context(format!(
+            "`{comic_title}将`{image_path:?}`写入`{zip_path:?}`失败"
+        ))?;
+    }
+
+    zip_writer
+        .finish()
+        .context(format!("`{comic_title}`关闭`{zip_path:?}`失败"))?;
+    // 发送导出cbz完成事件
+    let _ = ExportCbzEvent::End { uuid: event_uuid }.emit(app);
+
+    Ok(())
 }
 
 pub fn pdf(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {

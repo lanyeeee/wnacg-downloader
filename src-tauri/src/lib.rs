@@ -3,17 +3,17 @@ mod config;
 mod download_manager;
 mod errors;
 mod events;
+mod export;
 mod extensions;
 mod logger;
 mod types;
 mod utils;
 mod wnacg_client;
-mod export;
 
 use anyhow::Context;
 use config::Config;
 use download_manager::DownloadManager;
-use events::{DownloadSpeedEvent, DownloadTaskEvent, ExportPdfEvent, LogEvent};
+use events::{DownloadSpeedEvent, DownloadTaskEvent, ExportCbzEvent, ExportPdfEvent, LogEvent};
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use wnacg_client::WnacgClient;
@@ -43,12 +43,14 @@ pub fn run() {
             cancel_download_task,
             get_downloaded_comics,
             export_pdf,
+            export_cbz,
         ])
         .events(tauri_specta::collect_events![
             LogEvent,
             DownloadTaskEvent,
             DownloadSpeedEvent,
             ExportPdfEvent,
+            ExportCbzEvent,
         ]);
 
     #[cfg(debug_assertions)]

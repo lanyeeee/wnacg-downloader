@@ -45,3 +45,13 @@ pub enum ExportPdfEvent {
     #[serde(rename_all = "camelCase")]
     End { uuid: String },
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(tag = "event", content = "data")]
+pub enum ExportCbzEvent {
+    #[serde(rename_all = "camelCase")]
+    Start { uuid: String, title: String },
+
+    #[serde(rename_all = "camelCase")]
+    End { uuid: String },
+}

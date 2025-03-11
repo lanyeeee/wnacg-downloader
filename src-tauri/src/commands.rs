@@ -255,3 +255,14 @@ pub fn export_pdf(app: AppHandle, comic: Comic) -> CommandResult<()> {
     tracing::debug!("漫画`{title}`导出pdf成功");
     Ok(())
 }
+
+#[tauri::command(async)]
+#[specta::specta]
+#[allow(clippy::needless_pass_by_value)]
+pub fn export_cbz(app: AppHandle, comic: Comic) -> CommandResult<()> {
+    let title = comic.title.clone();
+    export::cbz(&app, comic)
+        .map_err(|err| CommandError::from(&format!("漫画`{title}`导出cbz失败"), err))?;
+    tracing::debug!("漫画`{title}`导出cbz成功");
+    Ok(())
+}

@@ -41,6 +41,8 @@ tokio = { version = "1.43.0", features = ["full"] }
 scraper = { version = "0.23.1" }
 image = { version = "0.25.5", default-features = false, features = ["jpeg", "png", "webp"] }
 bytes = { version = "1.10.1" }
+lopdf = { git = "https://github.com/lanyeeee/lopdf", features = ["embed_image_jpeg", "embed_image_png", "embed_image_webp"] }
+uuid = { version = "1.15.1", features = ["v4"] }
 
 [profile.release]
 strip = true

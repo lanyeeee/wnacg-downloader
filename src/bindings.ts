@@ -101,6 +101,14 @@ async getDownloadedComics() : Promise<Result<Comic[], CommandError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async exportPdf(comic: Comic) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_pdf", { comic }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -110,10 +118,12 @@ async getDownloadedComics() : Promise<Result<Comic[], CommandError>> {
 export const events = __makeEvents__<{
 downloadSpeedEvent: DownloadSpeedEvent,
 downloadTaskEvent: DownloadTaskEvent,
+exportPdfEvent: ExportPdfEvent,
 logEvent: LogEvent
 }>({
 downloadSpeedEvent: "download-speed-event",
 downloadTaskEvent: "download-task-event",
+exportPdfEvent: "export-pdf-event",
 logEvent: "log-event"
 })
 
@@ -212,11 +222,12 @@ additionalInfo: string;
  */
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { cookie: string; downloadDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat }
+export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat }
 export type DownloadFormat = "Jpeg" | "Png" | "Webp" | "Original"
 export type DownloadSpeedEvent = { speed: string }
 export type DownloadTaskEvent = { state: DownloadTaskState; comic: Comic; downloadedImgCount: number; totalImgCount: number }
 export type DownloadTaskState = "Pending" | "Downloading" | "Paused" | "Cancelled" | "Completed" | "Failed"
+export type ExportPdfEvent = { event: "Start"; data: { uuid: string; title: string } } | { event: "End"; data: { uuid: string } }
 export type GetFavoriteResult = { comics: ComicInFavorite[]; currentPage: number; totalPage: number; shelf: Shelf; shelves: Shelf[] }
 export type ImgInImgList = { 
 /**

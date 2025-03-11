@@ -5,6 +5,7 @@ use crate::{
     config::Config,
     download_manager::DownloadManager,
     errors::{CommandError, CommandResult},
+    export,
     extensions::AnyhowErrorToStringChain,
     logger,
     types::{Comic, GetFavoriteResult, SearchResult, UserProfile},
@@ -242,4 +243,15 @@ pub fn get_downloaded_comics(
 
     tracing::debug!("获取已下载的漫画成功");
     Ok(downloaded_comics)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+#[allow(clippy::needless_pass_by_value)]
+pub fn export_pdf(app: AppHandle, comic: Comic) -> CommandResult<()> {
+    let title = comic.title.clone();
+    export::pdf(&app, &comic)
+        .map_err(|err| CommandError::from(&format!("漫画`{title}`导出pdf失败"), err))?;
+    tracing::debug!("漫画`{title}`导出pdf成功");
+    Ok(())
 }

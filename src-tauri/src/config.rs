@@ -11,6 +11,7 @@ use crate::types::DownloadFormat;
 pub struct Config {
     pub cookie: String,
     pub download_dir: PathBuf,
+    pub export_dir: PathBuf,
     pub enable_file_logger: bool,
     pub download_format: DownloadFormat,
 }
@@ -70,6 +71,7 @@ impl Config {
         Config {
             cookie: String::new(),
             download_dir: app_data_dir.join("漫画下载"),
+            export_dir: app_data_dir.join("漫画导出"),
             enable_file_logger: true,
             download_format: DownloadFormat::Jpeg,
         }

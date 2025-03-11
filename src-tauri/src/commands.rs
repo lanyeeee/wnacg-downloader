@@ -5,6 +5,7 @@ use crate::{
     config::Config,
     download_manager::DownloadManager,
     errors::{CommandError, CommandResult},
+    extensions::AnyhowErrorToStringChain,
     logger,
     types::{Comic, GetFavoriteResult, SearchResult, UserProfile},
     wnacg_client::WnacgClient,
@@ -192,4 +193,53 @@ pub fn cancel_download_task(
         .map_err(|err| CommandError::from(&format!("取消漫画ID为`{comic_id}`的下载任务"), err))?;
     tracing::debug!("取消漫画ID为`{comic_id}`的下载任务成功");
     Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+#[allow(clippy::needless_pass_by_value)]
+pub fn get_downloaded_comics(
+    app: AppHandle,
+    config: State<RwLock<Config>>,
+) -> CommandResult<Vec<Comic>> {
+    let download_dir = config.read().download_dir.clone();
+    // 遍历下载目录，获取所有元数据文件的路径和修改时间
+    let mut metadata_path_with_modify_time = std::fs::read_dir(&download_dir)
+        .map_err(|err| {
+            let err_title = format!("获取已下载的漫画失败，读取下载目录 {download_dir:?} 失败");
+            CommandError::from(&err_title, err)
+        })?
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            if entry.file_name().to_string_lossy().starts_with(".下载中-") {
+                return None;
+            }
+            let metadata_path = entry.path().join("元数据.json");
+            if !metadata_path.exists() {
+                return None;
+            }
+            let modify_time = metadata_path.metadata().ok()?.modified().ok()?;
+            Some((metadata_path, modify_time))
+        })
+        .collect::<Vec<_>>();
+    // 按照文件修改时间排序，最新的排在最前面
+    metadata_path_with_modify_time.sort_by(|(_, a), (_, b)| b.cmp(a));
+    // 从元数据文件中读取Comic
+    let downloaded_comics = metadata_path_with_modify_time
+        .iter()
+        .filter_map(|(metadata_path, _)| {
+            match Comic::from_metadata(&app, metadata_path).map_err(anyhow::Error::from) {
+                Ok(comic) => Some(comic),
+                Err(err) => {
+                    let err_title = format!("读取元数据文件`{metadata_path:?}`失败");
+                    let string_chain = err.to_string_chain();
+                    tracing::error!(err_title, message = string_chain);
+                    None
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+
+    tracing::debug!("获取已下载的漫画成功");
+    Ok(downloaded_comics)
 }

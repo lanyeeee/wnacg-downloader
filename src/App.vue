@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="tsx">
 import { ref } from 'vue'
 import { commands } from './bindings.ts'
 
@@ -10,11 +10,16 @@ async function greet() {
   greetMsg.value = await commands.greet(name.value)
   console.log(await commands.getDownloadedComics())
 }
+
+function TestItem() {
+  return <div>Test Item</div>
+}
 </script>
 
 <template>
   <main class="container">
     <h1>Welcome to Tauri + Vue</h1>
+    <TestItem />
 
     <div class="row">
       <a href="https://vitejs.dev" target="_blank">

@@ -1,6 +1,7 @@
 <script setup lang="tsx">
 import { ref } from 'vue'
 import { commands } from './bindings.ts'
+import { Button } from 'ant-design-vue'
 
 const greetMsg = ref('')
 const name = ref('')
@@ -15,7 +16,7 @@ async function test() {
 }
 
 function TestItem() {
-  return <button onClick={test}>测试</button>
+  return <Button onClick={test}>测试</Button>
 }
 </script>
 

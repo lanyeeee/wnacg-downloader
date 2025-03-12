@@ -8,18 +8,20 @@ const name = ref('')
 async function greet() {
   // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
   greetMsg.value = await commands.greet(name.value)
+}
+
+async function test() {
   console.log(await commands.getDownloadedComics())
 }
 
 function TestItem() {
-  return <div>Test Item</div>
+  return <button onClick={test}>测试</button>
 }
 </script>
 
 <template>
   <main class="container">
     <h1>Welcome to Tauri + Vue</h1>
-    <TestItem />
 
     <div class="row">
       <a href="https://vitejs.dev" target="_blank">
@@ -38,7 +40,8 @@ function TestItem() {
       <input id="greet-input" v-model="name" placeholder="Enter a name..." />
       <button type="submit">Greet</button>
     </form>
-    <p>{{ greetMsg }}</p>
+    <p class="text-red">{{ greetMsg }}</p>
+    <TestItem />
   </main>
 </template>
 

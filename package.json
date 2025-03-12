@@ -15,6 +15,7 @@
     "@vitejs/plugin-vue-jsx": "^4.1.1",
     "pinia": "^3.0.1",
     "prettier": "^3.5.3",
+    "unocss": "66.1.0-beta.3",
     "vue": "^3.5.13"
   },
   "devDependencies": {

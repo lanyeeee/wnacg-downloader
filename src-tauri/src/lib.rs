@@ -44,6 +44,8 @@ pub fn run() {
             get_downloaded_comics,
             export_pdf,
             export_cbz,
+            get_logs_dir_size,
+            show_path_in_file_manager,
         ])
         .events(tauri_specta::collect_events![
             LogEvent,

@@ -1,12 +1,10 @@
 import { defineStore } from 'pinia'
+import { Config } from './bindings.ts'
 
 interface StoreState {
-  // 占位让eslint闭嘴
-  t: string
+  config?: Config
 }
 
 export const useStore = defineStore('store', {
-  state: (): StoreState => ({
-    t: 'hello',
-  }),
+  state: (): StoreState => ({}),
 })

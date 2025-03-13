@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import { Config } from './bindings.ts'
+import { Config, UserProfile } from './bindings.ts'
 
 interface StoreState {
   config?: Config
+  userProfile?: UserProfile
 }
 
 export const useStore = defineStore('store', {

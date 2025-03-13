@@ -2,7 +2,8 @@ import { defineComponent, onMounted, ref, watch } from 'vue'
 import { useStore } from './store.ts'
 import { commands } from './bindings.ts'
 import LogViewer from './components/LogViewer.tsx'
-import { notification, message, Button } from 'ant-design-vue'
+import { notification, message, Button, Input, Avatar } from 'ant-design-vue'
+import LoginDialog from './components/LoginDialog.tsx'
 
 export default defineComponent({
   name: 'AppContent',
@@ -12,6 +13,7 @@ export default defineComponent({
     notification.config({ placement: 'bottomRight' })
 
     const logViewerShowing = ref<boolean>(false)
+    const loginDialogShowing = ref<boolean>(false)
 
     watch(
       () => store.config,
@@ -23,6 +25,25 @@ export default defineComponent({
         message.success('保存配置成功')
       },
       { deep: true },
+    )
+
+    watch(
+      () => store.config?.cookie,
+      async () => {
+        if (store.config?.cookie === '') {
+          return
+        }
+
+        const result = await commands.getUserProfile()
+        if (result.status === 'error') {
+          console.error(result.error)
+          store.userProfile = undefined
+          return
+        }
+
+        store.userProfile = result.data
+        message.success('获取用户信息成功')
+      },
     )
 
     onMounted(async () => {
@@ -69,13 +90,38 @@ export default defineComponent({
     }
 
     return () => (
-      <div>
-        <Button onClick={() => (logViewerShowing.value = true)}>查看日志</Button>
-        <Button onClick={test}>测试用</Button>
-        <LogViewer
-          showing={logViewerShowing.value}
-          onUpdate:showing={(showing) => (logViewerShowing.value = showing)}
-        />
+      <div class="h-screen flex flex-col">
+        <div class="flex">
+          <Input
+            addonBefore="Cookie"
+            value={store.config?.cookie}
+            onChange={(e) => {
+              if (store.config) {
+                store.config.cookie = e.target.value ?? ''
+              }
+            }}
+            allowClear
+          />
+          <Button type="primary" onClick={() => (loginDialogShowing.value = true)}>
+            账号登录
+          </Button>
+          <Button onClick={() => (logViewerShowing.value = true)}>查看日志</Button>
+          <Button onClick={test}>测试用</Button>
+          {store.userProfile !== undefined && (
+            <div class="flex items-center">
+              <Avatar src={store.userProfile.avatar} />
+              <span class="whitespace-nowrap">{store.userProfile.username}</span>
+            </div>
+          )}
+          <LoginDialog
+            showing={loginDialogShowing.value}
+            onUpdate:showing={(showing) => (loginDialogShowing.value = showing)}
+          />
+          <LogViewer
+            showing={logViewerShowing.value}
+            onUpdate:showing={(showing) => (logViewerShowing.value = showing)}
+          />
+        </div>
       </div>
     )
   },

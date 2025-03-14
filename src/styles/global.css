@@ -9,3 +9,12 @@ body {
 .ant-notification-notice-description {
     @apply h-20 overflow-auto;
 }
+
+.ant-tabs-nav {
+    @apply important-mb-0;
+}
+
+.ant-tabs-content,
+.ant-tabs-tabpane {
+    @apply h-full;
+}

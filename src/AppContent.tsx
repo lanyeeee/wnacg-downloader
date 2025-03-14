@@ -2,9 +2,15 @@ import { defineComponent, onMounted, ref, watch } from 'vue'
 import { useStore } from './store.ts'
 import { commands } from './bindings.ts'
 import LogViewer from './components/LogViewer.tsx'
-import { notification, message, Button, Input, Avatar } from 'ant-design-vue'
+import { notification, message, Button, Input, Avatar, Tabs } from 'ant-design-vue'
 import LoginDialog from './components/LoginDialog.tsx'
 import AboutDialog from './components/AboutDialog.tsx'
+import DownloadingPane from './panes/DownloadingPane.tsx'
+import SearchPane from './panes/SearchPane.tsx'
+import ComicPane from './panes/ComicPane.tsx'
+import FavoritePane from './panes/FavoritePane.tsx'
+import DownloadedPane from './panes/DownloadedPane.tsx'
+import { CurrentTabName } from './types.ts'
 
 export default defineComponent({
   name: 'AppContent',
@@ -16,6 +22,8 @@ export default defineComponent({
     const logViewerShowing = ref<boolean>(false)
     const loginDialogShowing = ref<boolean>(false)
     const aboutDialogShowing = ref<boolean>(false)
+
+    const searchPane = ref<InstanceType<typeof SearchPane>>()
 
     watch(
       () => store.config,
@@ -110,7 +118,7 @@ export default defineComponent({
           <Button onClick={() => (logViewerShowing.value = true)}>日志</Button>
           <Button onClick={() => (aboutDialogShowing.value = true)}>关于</Button>
           <Button onClick={test}>测试用</Button>
-          {store.userProfile !== undefined && (
+          {store.userProfile && (
             <div class="flex items-center">
               <Avatar src={store.userProfile.avatar} />
               <span class="whitespace-nowrap">{store.userProfile.username}</span>
@@ -128,6 +136,27 @@ export default defineComponent({
             showing={aboutDialogShowing.value}
             onUpdate:showing={(showing) => (aboutDialogShowing.value = showing)}
           />
+        </div>
+        <div class="flex flex-1 overflow-hidden">
+          <Tabs
+            size="small"
+            class="h-full basis-1/2"
+            activeKey={store.currentTabName}
+            onChange={(key) => (store.currentTabName = key as CurrentTabName)}>
+            <Tabs.TabPane key="search" tab="漫画搜索" class="overflow-auto">
+              <SearchPane ref={searchPane} />
+            </Tabs.TabPane>
+            <Tabs.TabPane key="favorite" tab="我的书架" class="overflow-auto">
+              <FavoritePane />
+            </Tabs.TabPane>
+            <Tabs.TabPane key="downloaded" tab="本地库存" class="overflow-auto">
+              <DownloadedPane />
+            </Tabs.TabPane>
+            <Tabs.TabPane key="comic" tab="漫画详情" class="overflow-auto">
+              {searchPane.value && <ComicPane searchByTag={searchPane.value.searchByTag} />}
+            </Tabs.TabPane>
+          </Tabs>
+          <DownloadingPane class="h-full basis-1/2 overflow-auto" />
         </div>
       </div>
     )

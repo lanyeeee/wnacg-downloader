@@ -4,6 +4,7 @@ import { commands } from './bindings.ts'
 import LogViewer from './components/LogViewer.tsx'
 import { notification, message, Button, Input, Avatar } from 'ant-design-vue'
 import LoginDialog from './components/LoginDialog.tsx'
+import AboutDialog from './components/AboutDialog.tsx'
 
 export default defineComponent({
   name: 'AppContent',
@@ -14,6 +15,7 @@ export default defineComponent({
 
     const logViewerShowing = ref<boolean>(false)
     const loginDialogShowing = ref<boolean>(false)
+    const aboutDialogShowing = ref<boolean>(false)
 
     watch(
       () => store.config,
@@ -105,7 +107,8 @@ export default defineComponent({
           <Button type="primary" onClick={() => (loginDialogShowing.value = true)}>
             账号登录
           </Button>
-          <Button onClick={() => (logViewerShowing.value = true)}>查看日志</Button>
+          <Button onClick={() => (logViewerShowing.value = true)}>日志</Button>
+          <Button onClick={() => (aboutDialogShowing.value = true)}>关于</Button>
           <Button onClick={test}>测试用</Button>
           {store.userProfile !== undefined && (
             <div class="flex items-center">
@@ -120,6 +123,10 @@ export default defineComponent({
           <LogViewer
             showing={logViewerShowing.value}
             onUpdate:showing={(showing) => (logViewerShowing.value = showing)}
+          />
+          <AboutDialog
+            showing={aboutDialogShowing.value}
+            onUpdate:showing={(showing) => (aboutDialogShowing.value = showing)}
           />
         </div>
       </div>

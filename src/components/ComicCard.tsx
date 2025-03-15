@@ -3,6 +3,7 @@ import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
 import { Button, Card } from 'ant-design-vue'
+import DownloadButton from './DownloadButton.tsx'
 
 export default defineComponent({
   name: 'ComicCard',
@@ -61,7 +62,7 @@ export default defineComponent({
     }
 
     return () => (
-      <Card hoverable={true} class="cursor-auto m-0! rounded-none" bodyStyle={{ padding: '0.25rem' }}>
+      <Card hoverable={true} class="cursor-auto rounded-none" bodyStyle={{ padding: '0.25rem' }}>
         <div class="flex h-full">
           <img
             class="w-24 object-contain mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
@@ -84,6 +85,13 @@ export default defineComponent({
                   打开目录
                 </Button>
               )}
+              <DownloadButton
+                class="ml-auto"
+                size="small"
+                type="primary"
+                comicId={props.comicId}
+                comicDownloaded={props.comicDownloaded}
+              />
             </div>
           </div>
         </div>

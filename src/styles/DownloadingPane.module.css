@@ -1,0 +1,5 @@
+.tabs {
+    :global(.ant-tabs-tab) {
+        @apply important-py-0.25;
+    }
+}

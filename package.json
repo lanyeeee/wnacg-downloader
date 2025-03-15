@@ -10,8 +10,11 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@ant-design/icons-vue": "^7.0.1",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "~2",
     "@tauri-apps/plugin-opener": "^2",
+    "@viselect/vue": "^3.9.0",
     "@vitejs/plugin-vue-jsx": "^4.1.1",
     "ant-design-vue": "4.x",
     "pinia": "^3.0.1",

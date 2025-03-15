@@ -18,3 +18,12 @@ body {
 .ant-tabs-tabpane {
     @apply h-full;
 }
+
+.selectable,
+.ant-tabs-nav-wrap {
+    @apply select-none;
+}
+
+.selection-area {
+    @apply bg-[rgba(46,115,252,0.5)];
+}

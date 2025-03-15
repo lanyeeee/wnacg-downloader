@@ -8,12 +8,21 @@ importers:
 
   .:
     dependencies:
+      '@ant-design/icons-vue':
+        specifier: ^7.0.1
+        version: 7.0.1(vue@3.5.13(typescript@5.6.3))
       '@tauri-apps/api':
         specifier: ^2
         version: 2.3.0
+      '@tauri-apps/plugin-dialog':
+        specifier: ~2
+        version: 2.2.0
       '@tauri-apps/plugin-opener':
         specifier: ^2
         version: 2.2.6
+      '@viselect/vue':
+        specifier: ^3.9.0
+        version: 3.9.0(vue@3.5.13(typescript@5.6.3))
       '@vitejs/plugin-vue-jsx':
         specifier: ^4.1.1
         version: 4.1.1(vite@6.2.0(jiti@2.4.2))(vue@3.5.13(typescript@5.6.3))
@@ -623,6 +632,9 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
+  '@tauri-apps/plugin-dialog@2.2.0':
+    resolution: {integrity: sha512-6bLkYK68zyK31418AK5fNccCdVuRnNpbxquCl8IqgFByOgWFivbiIlvb79wpSXi0O+8k8RCSsIpOquebusRVSg==}
+
   '@tauri-apps/plugin-opener@2.2.6':
     resolution: {integrity: sha512-bSdkuP71ZQRepPOn8BOEdBKYJQvl6+jb160QtJX/i2H9BF6ZySY/kYljh76N2Ne5fJMQRge7rlKoStYQY5Jq1w==}
 
@@ -764,6 +776,14 @@ packages:
     resolution: {integrity: sha512-daqzvgC9e98b42OD7e7kChvM9P1jKQ7yXw7dESMCWpQHBwB0iUiWruWY4O/VkUEV+sGZllQSkk1jwDa36vWtew==}
     peerDependencies:
       vite: ^2.9.0 || ^3.0.0-0 || ^4.0.0 || ^5.0.0-0 || ^6.0.0-0
+
+  '@viselect/vanilla@3.9.0':
+    resolution: {integrity: sha512-E9eBgoi/crJ0SlZMAc+Yst7nU324LZ5LLvcXjzWEcrfllscdpTml2OLOKHC7O8Bbz19OybSLv6VexxnjlJrLxQ==}
+
+  '@viselect/vue@3.9.0':
+    resolution: {integrity: sha512-CS4nzdKn1bZB/Upr3oCPlEGPXWRyvbjOvhlAkETVEkg1tkqS9vR9GVAytXGBbztIhCXRImTlCCO9G5NCNlDYng==}
+    peerDependencies:
+      vue: '>=3.2.0'
 
   '@vitejs/plugin-vue-jsx@4.1.1':
     resolution: {integrity: sha512-uMJqv/7u1zz/9NbWAD3XdjaY20tKTf17XVfQ9zq4wY1BjsB/PjpJPMe2xiG39QpP4ZdhYNhm4Hvo66uJrykNLA==}
@@ -2184,6 +2204,10 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.3.1
       '@tauri-apps/cli-win32-x64-msvc': 2.3.1
 
+  '@tauri-apps/plugin-dialog@2.2.0':
+    dependencies:
+      '@tauri-apps/api': 2.3.0
+
   '@tauri-apps/plugin-opener@2.2.6':
     dependencies:
       '@tauri-apps/api': 2.3.0
@@ -2419,6 +2443,13 @@ snapshots:
       vite: 6.2.0(jiti@2.4.2)
     transitivePeerDependencies:
       - vue
+
+  '@viselect/vanilla@3.9.0': {}
+
+  '@viselect/vue@3.9.0(vue@3.5.13(typescript@5.6.3))':
+    dependencies:
+      '@viselect/vanilla': 3.9.0
+      vue: 3.5.13(typescript@5.6.3)
 
   '@vitejs/plugin-vue-jsx@4.1.1(vite@6.2.0(jiti@2.4.2))(vue@3.5.13(typescript@5.6.3))':
     dependencies:

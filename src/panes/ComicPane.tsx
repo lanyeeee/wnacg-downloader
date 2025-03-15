@@ -3,6 +3,7 @@ import { useStore } from '../store.ts'
 import { commands, events } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
 import { Empty, Button } from 'ant-design-vue'
+import DownloadButton from '../components/DownloadButton.tsx'
 
 export default defineComponent({
   name: 'ComicPane',
@@ -55,6 +56,13 @@ export default defineComponent({
                     打开目录
                   </Button>
                 )}
+                <DownloadButton
+                  class="mt-auto"
+                  size="small"
+                  type="primary"
+                  comicId={store.pickedComic.id}
+                  comicDownloaded={store.pickedComic.isDownloaded === true}
+                />
               </div>
             </div>
           </div>

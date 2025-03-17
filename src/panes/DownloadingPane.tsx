@@ -85,9 +85,9 @@ export default defineComponent({
             addonBefore="下载目录"
             readonly
             value={store.config?.downloadDir}
-            onChange={(e) => {
+            onUpdate:value={(value) => {
               if (store.config) {
-                store.config.downloadDir = e.target.value ?? ''
+                store.config.downloadDir = value
               }
             }}
             // 如果直接用 onClick={selectDownloadDir}，运行没问题，但是ts会报错

@@ -105,9 +105,9 @@ export default defineComponent({
           <Input
             addonBefore="Cookie"
             value={store.config?.cookie}
-            onChange={(e) => {
+            onUpdate:value={(value) => {
               if (store.config) {
-                store.config.cookie = e.target.value ?? ''
+                store.config.cookie = value
               }
             }}
             allowClear
@@ -142,7 +142,7 @@ export default defineComponent({
             size="small"
             class="h-full basis-1/2"
             activeKey={store.currentTabName}
-            onChange={(key) => (store.currentTabName = key as CurrentTabName)}>
+            onUpdate:activeKey={(key) => (store.currentTabName = key as CurrentTabName)}>
             <Tabs.TabPane key="search" tab="漫画搜索" class="overflow-auto">
               <SearchPane ref={searchPane} />
             </Tabs.TabPane>

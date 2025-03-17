@@ -123,7 +123,7 @@ export default defineComponent({
             addonBefore="关键词"
             size="small"
             value={searchByKeywordInput.value}
-            onChange={(e) => (searchByKeywordInput.value = e.target.value ?? '')}
+            onUpdate:value={(value) => (searchByKeywordInput.value = value)}
             allowClear
             onPressEnter={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}
           />
@@ -138,7 +138,7 @@ export default defineComponent({
             }}
             size="small"
             value={searchByTagInput.value}
-            onChange={(e) => (searchByTagInput.value = e.target.value ?? '')}
+            onUpdate:value={(value) => (searchByTagInput.value = value)}
             allowClear
             onPressEnter={() => searchByTag(searchByTagInput.value.trim(), 1)}
           />
@@ -152,7 +152,7 @@ export default defineComponent({
             placeholder="链接也行"
             size="small"
             value={searchByComicIdInput.value}
-            onChange={(e) => (searchByComicIdInput.value = e.target.value ?? '')}
+            onUpdate:value={(value) => (searchByComicIdInput.value = value)}
             allowClear
             onPressEnter={pickComic}
           />
@@ -183,7 +183,7 @@ export default defineComponent({
           total={totalForPagination.value}
           showSizeChanger={false}
           simple
-          onChange={async (pageNum) => await onPageChange(pageNum)}
+          onUpdate:current={async (pageNum) => await onPageChange(pageNum)}
         />
       </div>
     )

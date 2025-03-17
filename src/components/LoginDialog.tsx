@@ -61,13 +61,13 @@ export default defineComponent({
         <Input
           addonBefore="用户名"
           value={username.value}
-          onChange={(e) => (username.value = e.target.value ?? '')}
+          onUpdate:value={(value) => (username.value = value)}
           onPressEnter={login}
         />
         <Input.Password
           addonBefore="密码"
           value={password.value}
-          onChange={(e) => (password.value = e.target.value ?? '')}
+          onUpdate:value={(value) => (password.value = value)}
           onPressEnter={login}
         />
       </Modal>

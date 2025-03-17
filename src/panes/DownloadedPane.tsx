@@ -120,9 +120,9 @@ export default defineComponent({
             addonBefore="导出目录"
             readonly
             value={store.config?.exportDir}
-            onChange={(e) => {
+            onUpdate:value={(value) => {
               if (store.config) {
-                store.config.exportDir = e.target.value ?? ''
+                store.config.exportDir = value
               }
             }}
             // 如果直接用 onClick={selectExportDir}，运行没问题，但是ts会报错
@@ -149,7 +149,7 @@ export default defineComponent({
           total={downloadedComics.value.length}
           showSizeChanger={false}
           simple
-          onChange={(pageNum) => (currentPage.value = pageNum)}
+          onUpdate:current={(pageNum) => (currentPage.value = pageNum)}
         />
       </div>
     )

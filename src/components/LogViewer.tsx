@@ -116,14 +116,14 @@ export default defineComponent({
             size="small"
             placeholder="搜索日志..."
             value={searchText.value}
-            onChange={(e) => (searchText.value = e.target.value ?? '')}
+            onUpdate:value={(value) => (searchText.value = value)}
             allowClear
           />
           <Select
             class="w-25"
             size="small"
             value={selectedLevel.value}
-            onChange={(value) => (selectedLevel.value = value as LogLevel)}
+            onUpdate:value={(value) => (selectedLevel.value = value as LogLevel)}
             options={logLevelOptions}
           />
           <div class="flex flex-wrap gap-2 ml-auto">
@@ -133,9 +133,9 @@ export default defineComponent({
             <Checkbox
               class="select-none"
               checked={store.config?.enableFileLogger}
-              onChange={() => {
+              onUpdate:checked={(value) => {
                 if (store.config) {
-                  store.config.enableFileLogger = !store.config.enableFileLogger
+                  store.config.enableFileLogger = value
                 }
               }}>
               输出文件日志

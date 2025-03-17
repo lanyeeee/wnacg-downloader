@@ -35,6 +35,7 @@ export default defineComponent({
         } else if (state === 'Cancelled') {
           indicator = `已取消`
         } else if (state === 'Completed') {
+          comic.isDownloaded = true
           indicator = `下载完成`
         } else if (state === 'Failed') {
           indicator = `下载失败`

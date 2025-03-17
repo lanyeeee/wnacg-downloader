@@ -1,6 +1,6 @@
-import { defineComponent } from 'vue'
+import { defineComponent, PropType } from 'vue'
 import { useStore } from '../store.ts'
-import { commands } from '../bindings.ts'
+import { commands, Shelf } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
 import { Button, Card } from 'ant-design-vue'
 import DownloadButton from './DownloadButton.tsx'
@@ -31,6 +31,18 @@ export default defineComponent({
     comicDownloaded: {
       type: Boolean,
       required: true,
+    },
+    shelf: {
+      type: Object as PropType<Shelf>,
+      required: false,
+    },
+    comicFavoriteTime: {
+      type: String,
+      required: false,
+    },
+    getFavorite: {
+      type: Function as PropType<(shelfId: number, pageNum: number) => Promise<void>>,
+      required: false,
     },
   },
   setup(props) {
@@ -78,6 +90,23 @@ export default defineComponent({
             />
             {props.comicAdditionalInfo && (
               <span class="text-gray whitespace-pre-wrap">{props.comicAdditionalInfo}</span>
+            )}
+            {props.comicFavoriteTime && <span>收藏时间：{props.comicFavoriteTime}</span>}
+            {props.shelf && props.getFavorite && (
+              <div>
+                <span>所属书架：</span>
+                {props.shelf.name !== '' && (
+                  <Button
+                    size="small"
+                    onClick={async () => {
+                      if (props.shelf !== undefined && props.getFavorite !== undefined) {
+                        await props.getFavorite(props.shelf.id, 1)
+                      }
+                    }}>
+                    {props.shelf.name}
+                  </Button>
+                )}
+              </div>
             )}
             <div class="flex mt-auto">
               {props.comicDownloaded && (

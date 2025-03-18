@@ -6,11 +6,14 @@ import { Button, Input, Tabs } from 'ant-design-vue'
 import UncompletedProgresses from '../components/UncompletedProgresses.tsx'
 import CompletedProgress from '../components/CompletedProgress.tsx'
 import styles from '../styles/DownloadingPane.module.css'
+import SettingsDialog from '../components/SettingsDialog.tsx'
 
 export default defineComponent({
   name: 'DownloadingPane',
   setup() {
     const store = useStore()
+
+    const settingsShowing = ref<boolean>(false)
 
     const downloadSpeed = ref<string>('')
 
@@ -98,6 +101,9 @@ export default defineComponent({
           />
           <Button size="small" onClick={showDownloadDirInFileManager}>
             打开目录
+          </Button>{' '}
+          <Button size="small" onClick={() => (settingsShowing.value = true)}>
+            更多设置
           </Button>
         </div>
         <Tabs size="small" class={`${styles.tabs} flex-1 overflow-hidden`}>
@@ -108,6 +114,10 @@ export default defineComponent({
             <CompletedProgress />
           </Tabs.TabPane>
         </Tabs>
+        <SettingsDialog
+          showing={settingsShowing.value}
+          onUpdate:showing={(showing) => (settingsShowing.value = showing)}
+        />
       </div>
     )
   },

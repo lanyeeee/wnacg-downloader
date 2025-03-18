@@ -1,7 +1,7 @@
 import { computed, defineComponent, onMounted, ref, watch } from 'vue'
 import { useStore } from '../store.ts'
 import { commands, events, GetFavoriteResult } from '../bindings.ts'
-import { Select } from 'ant-design-vue'
+import { Empty, Select } from 'ant-design-vue'
 import ComicCard from '../components/ComicCard.tsx'
 
 export default defineComponent({
@@ -60,8 +60,16 @@ export default defineComponent({
       }
     }
 
-    return () =>
-      getFavoriteResult.value && (
+    return () => {
+      if (store.userProfile === undefined) {
+        return <Empty description="请先登录" />
+      }
+
+      if (getFavoriteResult.value === undefined) {
+        return <Empty description="加载中..." />
+      }
+
+      return (
         <div class="h-full flex flex-col">
           <div class="flex items-center">
             <span class="mx-2">书架</span>
@@ -91,5 +99,6 @@ export default defineComponent({
           </div>
         </div>
       )
+    }
   },
 })

@@ -65,7 +65,9 @@ export default defineComponent({
           onPressEnter={login}
         />
         <Input.Password
-          addonBefore="密码"
+          v-slots={{
+            addonBefore: () => <div class="mx-1.75">密码</div>,
+          }}
           value={password.value}
           onUpdate:value={(value) => (password.value = value)}
           onPressEnter={login}

@@ -21,6 +21,10 @@ pub struct ComicInfo {
     /// 漫画类型
     #[yaserde(rename = "Genre")]
     pub genre: String,
+    /// 漫画标签
+    #[yaserde(rename = "Tags")]
+    pub tags: String,
+    /// 简介
     #[yaserde(rename = "Summary")]
     pub summary: String,
     /// 普通章节序号
@@ -49,7 +53,8 @@ impl From<Comic> for ComicInfo {
             manga: "Yes".to_string(),
             series: comic.title,
             publisher: "绅士漫画".to_string(),
-            genre: comic
+            genre: comic.category,
+            tags: comic
                 .tags
                 .iter()
                 .map(|t| t.name.as_str())

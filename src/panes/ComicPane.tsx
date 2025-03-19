@@ -38,10 +38,12 @@ export default defineComponent({
       }
     }
 
-    return () =>
-      store.pickedComic === undefined ? (
-        <Empty description="请先选择漫画(漫画搜索、漫画收藏、本地库存)" />
-      ) : (
+    return () => {
+      if (store.pickedComic === undefined) {
+        return <Empty description="请先选择漫画(漫画搜索、漫画收藏、本地库存)" />
+      }
+
+      return (
         <div class="flex flex-col pl-2 h-full">
           <span class="font-bold text-xl">{store.pickedComic.title}</span>
           <div class="flex w-full">
@@ -86,5 +88,6 @@ export default defineComponent({
           <div class="break-all" v-html={store.pickedComic.intro} />
         </div>
       )
+    }
   },
 })

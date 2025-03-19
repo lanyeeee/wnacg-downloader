@@ -26,6 +26,24 @@ export default defineComponent({
       await events.downloadTaskEvent.listen(({ payload: downloadTaskEvent }) => {
         const { state, comic, downloadedImgCount, totalImgCount } = downloadTaskEvent
 
+        if (state === 'Completed') {
+          comic.isDownloaded = true
+          if (store.getFavoriteResult !== undefined) {
+            const completedResult = store.getFavoriteResult.comics.find(
+              (comic) => comic.id === downloadTaskEvent.comic.id,
+            )
+            if (completedResult !== undefined) {
+              completedResult.isDownloaded = true
+            }
+          }
+          if (store.searchResult !== undefined) {
+            const completedResult = store.searchResult.comics.find((comic) => comic.id === downloadTaskEvent.comic.id)
+            if (completedResult !== undefined) {
+              completedResult.isDownloaded = true
+            }
+          }
+        }
+
         const percentage = (downloadedImgCount / totalImgCount) * 100
 
         let indicator = ''
@@ -38,7 +56,6 @@ export default defineComponent({
         } else if (state === 'Cancelled') {
           indicator = `已取消`
         } else if (state === 'Completed') {
-          comic.isDownloaded = true
           indicator = `下载完成`
         } else if (state === 'Failed') {
           indicator = `下载失败`

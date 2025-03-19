@@ -1,6 +1,6 @@
-import { computed, defineComponent, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, ref, watch } from 'vue'
 import { useStore } from '../store.ts'
-import { commands, events, GetFavoriteResult } from '../bindings.ts'
+import { commands } from '../bindings.ts'
 import { Empty, Select } from 'ant-design-vue'
 import ComicCard from '../components/ComicCard.tsx'
 
@@ -10,12 +10,11 @@ export default defineComponent({
     const store = useStore()
 
     const shelfIdSelected = ref<number>(0)
-    const getFavoriteResult = ref<GetFavoriteResult>()
     const currentPage = ref<number>(1)
     const comicCardContainer = ref<HTMLElement>()
 
     const shelfOptions = computed<{ label: string; value: number }[]>(() =>
-      (getFavoriteResult.value?.shelves || []).map((shelf) => ({
+      (store.getFavoriteResult?.shelves || []).map((shelf) => ({
         label: shelf.name,
         value: shelf.id,
       })),
@@ -25,25 +24,13 @@ export default defineComponent({
       () => store.userProfile,
       async () => {
         if (store.userProfile === undefined) {
-          getFavoriteResult.value = undefined
+          store.getFavoriteResult = undefined
           return
         }
         await getFavourite(0, 1)
       },
       { immediate: true },
     )
-
-    onMounted(async () => {
-      await events.downloadTaskEvent.listen(({ payload: downloadTaskEvent }) => {
-        if (downloadTaskEvent.state !== 'Completed' || getFavoriteResult.value === undefined) {
-          return
-        }
-        const completedResult = getFavoriteResult.value.comics.find((comic) => comic.id === downloadTaskEvent.comic.id)
-        if (completedResult !== undefined) {
-          completedResult.isDownloaded = true
-        }
-      })
-    })
 
     async function getFavourite(shelfId: number, pageNum: number) {
       shelfIdSelected.value = shelfId
@@ -53,7 +40,7 @@ export default defineComponent({
         console.error(result.error)
         return
       }
-      getFavoriteResult.value = result.data
+      store.getFavoriteResult = result.data
 
       if (comicCardContainer.value !== undefined) {
         comicCardContainer.value.scrollTo({ top: 0, behavior: 'instant' })
@@ -65,7 +52,7 @@ export default defineComponent({
         return <Empty description="请先登录" />
       }
 
-      if (getFavoriteResult.value === undefined) {
+      if (store.getFavoriteResult === undefined) {
         return <Empty description="加载中..." />
       }
 
@@ -84,7 +71,7 @@ export default defineComponent({
 
           <div class="flex flex-col overflow-auto">
             <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">
-              {getFavoriteResult.value.comics.map((comic) => (
+              {store.getFavoriteResult.comics.map((comic) => (
                 <ComicCard
                   comicId={comic.id}
                   comicTitle={comic.title}

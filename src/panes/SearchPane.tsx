@@ -1,7 +1,7 @@
-import { computed, defineComponent, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, ref, watch } from 'vue'
 import { Input, notification, Button, Pagination } from 'ant-design-vue'
 import { useStore } from '../store.ts'
-import { commands, events, SearchResult } from '../bindings.ts'
+import { commands } from '../bindings.ts'
 import ComicCard from '../components/ComicCard.tsx'
 
 export default defineComponent({
@@ -14,33 +14,23 @@ export default defineComponent({
     const searchByTagInput = ref<string>('')
     const searchByComicIdInput = ref<string>('')
     const currentPage = ref<number>(1)
-    const searchResult = ref<SearchResult>()
     const comicCardContainer = ref<HTMLElement>()
 
     const totalForPagination = computed(() => {
-      if (searchResult.value === undefined) {
+      if (store.searchResult === undefined) {
         return 1
       }
-      return searchResult.value.totalPage * PAGE_SIZE
+      return store.searchResult.totalPage * PAGE_SIZE
     })
 
-    watch(searchResult, () => {
-      if (comicCardContainer.value !== undefined) {
-        comicCardContainer.value.scrollTo({ top: 0, behavior: 'instant' })
-      }
-    })
-
-    onMounted(async () => {
-      await events.downloadTaskEvent.listen(({ payload: downloadTaskEvent }) => {
-        if (downloadTaskEvent.state !== 'Completed' || searchResult.value === undefined) {
-          return
+    watch(
+      () => store.searchResult,
+      () => {
+        if (comicCardContainer.value !== undefined) {
+          comicCardContainer.value.scrollTo({ top: 0, behavior: 'instant' })
         }
-        const completedResult = searchResult.value.comics.find((comic) => comic.id === downloadTaskEvent.comic.id)
-        if (completedResult !== undefined) {
-          completedResult.isDownloaded = true
-        }
-      })
-    })
+      },
+    )
 
     async function searchByKeyword(keyword: string, pageNum: number) {
       console.log(keyword, pageNum)
@@ -51,7 +41,7 @@ export default defineComponent({
         console.error(result.error)
         return
       }
-      searchResult.value = result.data
+      store.searchResult = result.data
       console.log(result.data)
     }
 
@@ -64,17 +54,17 @@ export default defineComponent({
         console.error(result.error)
         return
       }
-      searchResult.value = result.data
+      store.searchResult = result.data
       store.currentTabName = 'search'
       console.log(result.data)
     }
 
     async function onPageChange(page: number) {
-      if (searchResult.value === undefined) {
+      if (store.searchResult === undefined) {
         return
       }
 
-      if (searchResult.value.isSearchByTag) {
+      if (store.searchResult.isSearchByTag) {
         await searchByTag(searchByTagInput.value.trim(), page)
       } else {
         await searchByKeyword(searchByKeywordInput.value.trim(), page)
@@ -160,10 +150,10 @@ export default defineComponent({
             搜索
           </Button>
         </div>
-        {searchResult.value && (
+        {store.searchResult && (
           <div class="flex flex-col overflow-auto">
             <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">
-              {searchResult.value.comics.map((comic) => (
+              {store.searchResult.comics.map((comic) => (
                 <ComicCard
                   comicId={comic.id}
                   comicTitle={comic.title}

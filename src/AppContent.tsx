@@ -90,15 +90,6 @@ export default defineComponent({
       }
     })
 
-    function test() {
-      notification.error({
-        message: 'messagemessagemessagemessagemessagemessagemessagemessagemessagemessagemessage',
-        description:
-          'descriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescriptiondescription',
-        duration: 0,
-      })
-    }
-
     return () => (
       <div class="h-screen flex flex-col">
         <div class="flex">
@@ -117,7 +108,6 @@ export default defineComponent({
           </Button>
           <Button onClick={() => (logViewerShowing.value = true)}>日志</Button>
           <Button onClick={() => (aboutDialogShowing.value = true)}>关于</Button>
-          <Button onClick={test}>测试用</Button>
           {store.userProfile && (
             <div class="flex items-center">
               <Avatar src={store.userProfile.avatar} />

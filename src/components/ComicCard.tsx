@@ -4,6 +4,7 @@ import { commands, Shelf } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
 import { Button, Card } from 'ant-design-vue'
 import DownloadButton from './DownloadButton.tsx'
+import styles from '../styles/ComicCard.module.css'
 
 export default defineComponent({
   name: 'ComicCard',
@@ -74,7 +75,7 @@ export default defineComponent({
     }
 
     return () => (
-      <Card hoverable={true} class="cursor-auto rounded-none" bodyStyle={{ padding: '0.25rem' }}>
+      <Card hoverable={true} class={`${styles.comicCard} cursor-auto rounded-none`} bodyStyle={{ padding: '0.25rem' }}>
         <div class="flex h-full">
           <img
             class="w-24 object-contain mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"

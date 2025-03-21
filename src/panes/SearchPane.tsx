@@ -147,7 +147,7 @@ export default defineComponent({
             onPressEnter={pickComic}
           />
           <Button size="small" onClick={async () => await pickComic()}>
-            搜索
+            直达
           </Button>
         </div>
         {store.searchResult && (

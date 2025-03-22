@@ -73,6 +73,7 @@ export default defineComponent({
             <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">
               {store.getFavoriteResult.comics.map((comic) => (
                 <ComicCard
+                  key={comic.id}
                   comicId={comic.id}
                   comicTitle={comic.title}
                   comicCover={comic.cover}

@@ -46,6 +46,7 @@ pub fn run() {
             export_cbz,
             get_logs_dir_size,
             show_path_in_file_manager,
+            get_cover_data,
         ])
         .events(tauri_specta::collect_events![
             LogEvent,

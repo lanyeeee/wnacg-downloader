@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use image::ImageFormat;
 use parking_lot::RwLock;
-use reqwest::StatusCode;
+use reqwest::{Client, StatusCode};
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde::{Deserialize, Serialize};
@@ -30,16 +30,19 @@ pub struct WnacgClient {
     app: AppHandle,
     api_client: ClientWithMiddleware,
     img_client: ClientWithMiddleware,
+    cover_client: Client,
 }
 
 impl WnacgClient {
     pub fn new(app: AppHandle) -> Self {
         let api_client = create_api_client();
         let img_client = create_img_client();
+        let cover_client = Client::new();
         Self {
             app,
             api_client,
             img_client,
+            cover_client,
         }
     }
 
@@ -301,6 +304,22 @@ impl WnacgClient {
         ))?;
 
         Ok((Bytes::from(converted_data), target_format))
+    }
+
+    pub async fn get_cover_data(&self, cover_url: &str) -> anyhow::Result<Bytes> {
+        let http_resp = self
+            .cover_client
+            .get(cover_url)
+            .header("referer", format!("https://{API_DOMAIN}/"))
+            .send()
+            .await?;
+        let status = http_resp.status();
+        if status != StatusCode::OK {
+            let body = http_resp.text().await?;
+            return Err(anyhow!("预料之外的状态码({status}): {body}"));
+        }
+        let cover_data = http_resp.bytes().await?;
+        Ok(cover_data)
     }
 }
 

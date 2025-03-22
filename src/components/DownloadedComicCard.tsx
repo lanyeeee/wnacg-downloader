@@ -1,4 +1,4 @@
-import { defineComponent, PropType } from 'vue'
+import { computed, defineComponent, onMounted, PropType } from 'vue'
 import { useStore } from '../store.ts'
 import { Comic, commands } from '../bindings.ts'
 import { Button, Card } from 'ant-design-vue'
@@ -14,6 +14,16 @@ export default defineComponent({
   },
   setup(props) {
     const store = useStore()
+
+    const cover = computed<string | undefined>(() => store.covers.get(props.comic.id))
+
+    onMounted(async () => {
+      if (cover.value !== undefined) {
+        return
+      }
+
+      await store.loadCover(props.comic.id, props.comic.cover)
+    })
 
     async function pickComic() {
       store.pickedComic = props.comic
@@ -54,7 +64,7 @@ export default defineComponent({
         <div class="flex h-full">
           <img
             class="w-24 object-contain mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
-            src={props.comic.cover}
+            src={cover.value}
             alt=""
             onClick={pickComic}
           />

@@ -102,6 +102,18 @@ export default defineComponent({
                 }
               }}
             />
+            <InputNumber
+              size="small"
+              min={0}
+              addonBefore="每本漫画下载完成后休息"
+              addonAfter="秒"
+              value={store.config?.comicDownloadIntervalSec}
+              onUpdate:value={async (value) => {
+                if (store.config) {
+                  store.config.comicDownloadIntervalSec = value as number
+                }
+              }}
+            />
           </div>
           <div class="flex gap-1">
             <InputNumber
@@ -113,6 +125,18 @@ export default defineComponent({
                 if (store.config) {
                   message.warning('对图片并发数的修改需要重启才能生效')
                   store.config.imgConcurrency = value as number
+                }
+              }}
+            />
+            <InputNumber
+              size="small"
+              min={0}
+              addonBefore="每张图片下载完成后休息"
+              addonAfter="秒"
+              value={store.config?.imgDownloadIntervalSec}
+              onUpdate:value={async (value) => {
+                if (store.config) {
+                  store.config.imgDownloadIntervalSec = value as number
                 }
               }}
             />

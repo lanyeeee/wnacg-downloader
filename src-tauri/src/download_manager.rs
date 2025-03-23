@@ -19,11 +19,12 @@ use tauri_specta::Event;
 use tokio::{
     sync::{watch, Semaphore, SemaphorePermit},
     task::JoinSet,
+    time::sleep,
 };
 
 use crate::{
     config::Config,
-    events::{DownloadSpeedEvent, DownloadTaskEvent},
+    events::{DownloadSleepingEvent, DownloadSpeedEvent, DownloadTaskEvent},
     extensions::AnyhowErrorToStringChain,
     types::Comic,
     wnacg_client::WnacgClient,
@@ -277,6 +278,8 @@ impl DownloadTask {
             "重命名临时下载目录`{temp_download_dir:?}`成功"
         );
         tracing::info!(comic_id, comic_title, "漫画下载成功");
+
+        self.sleep_between_comics().await;
         // 发送下载结束事件
         self.set_state(DownloadTaskState::Completed);
         self.emit_download_task_event();
@@ -432,6 +435,25 @@ impl DownloadTask {
                 ControlFlow::Break(())
             }
             _ => ControlFlow::Continue(()),
+        }
+    }
+
+    async fn sleep_between_comics(&self) {
+        let comic_id = self.comic.id;
+        let mut remaining_sec = self
+            .app
+            .state::<RwLock<Config>>()
+            .read()
+            .comic_download_interval_sec;
+        while remaining_sec > 0 {
+            // 发送章节休眠事件
+            let _ = DownloadSleepingEvent {
+                comic_id,
+                remaining_sec,
+            }
+            .emit(&self.app);
+            sleep(Duration::from_secs(1)).await;
+            remaining_sec -= 1;
         }
     }
 
@@ -618,6 +640,13 @@ impl DownloadImgTask {
             .downloaded_img_count
             .fetch_add(1, Ordering::Relaxed);
         self.download_task.emit_download_task_event();
+
+        let img_download_interval_sec = self
+            .app
+            .state::<RwLock<Config>>()
+            .read()
+            .img_download_interval_sec;
+        sleep(Duration::from_secs(img_download_interval_sec)).await;
     }
 
     async fn acquire_img_permit<'a>(

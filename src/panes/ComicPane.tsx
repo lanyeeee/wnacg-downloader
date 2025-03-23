@@ -1,4 +1,4 @@
-import { defineComponent, onMounted, PropType } from 'vue'
+import { computed, defineComponent, onMounted, PropType, watch } from 'vue'
 import { useStore } from '../store.ts'
 import { commands, events } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
@@ -15,6 +15,25 @@ export default defineComponent({
   },
   setup(props) {
     const store = useStore()
+    console.log('ComicPane setup')
+
+    const cover = computed<string | undefined>(() =>
+      store.pickedComic ? store.covers.get(store.pickedComic.id) : undefined,
+    )
+
+    watch(
+      () => store.pickedComic,
+      async () => {
+        console.log('pickedComic changed')
+        if (store.pickedComic === undefined) {
+          return
+        }
+
+        if (cover.value === undefined) {
+          await store.loadCover(store.pickedComic.id, store.pickedComic.cover)
+        }
+      },
+    )
 
     onMounted(async () => {
       await events.downloadTaskEvent.listen(({ payload: downloadTaskEvent }) => {
@@ -47,7 +66,7 @@ export default defineComponent({
         <div class="flex flex-col pl-2 h-full">
           <span class="font-bold text-xl">{store.pickedComic.title}</span>
           <div class="flex w-full">
-            <img class="w-50 object-contain mr-4" src={store.pickedComic.cover} alt="" />
+            <img class="w-50 object-contain mr-4" src={cover.value} alt="" />
             <div class="flex flex-col w-full">
               <span>ID：{store.pickedComic.id}</span>
               <span>分类：{store.pickedComic.category}</span>

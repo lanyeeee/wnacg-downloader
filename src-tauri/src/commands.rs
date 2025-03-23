@@ -298,3 +298,17 @@ pub fn show_path_in_file_manager(app: AppHandle, path: &str) -> CommandResult<()
     tracing::debug!("在文件管理器中打开成功");
     Ok(())
 }
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_cover_data(
+    wnacg_client: State<'_, WnacgClient>,
+    cover_url: String,
+) -> CommandResult<Vec<u8>> {
+    let cover_data = wnacg_client
+        .get_cover_data(&cover_url)
+        .await
+        .map_err(|err| CommandError::from("获取封面失败", err))?;
+    Ok(cover_data.to_vec())
+}

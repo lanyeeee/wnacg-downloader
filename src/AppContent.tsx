@@ -133,16 +133,16 @@ export default defineComponent({
             class="h-full basis-1/2"
             activeKey={store.currentTabName}
             onUpdate:activeKey={(key) => (store.currentTabName = key as CurrentTabName)}>
-            <Tabs.TabPane key="search" tab="漫画搜索" class="overflow-auto">
+            <Tabs.TabPane key="search" tab="漫画搜索" class="overflow-auto" forceRender>
               <SearchPane ref={searchPane} />
             </Tabs.TabPane>
-            <Tabs.TabPane key="favorite" tab="我的书架" class="overflow-auto">
+            <Tabs.TabPane key="favorite" tab="我的书架" class="overflow-auto" forceRender>
               <FavoritePane />
             </Tabs.TabPane>
-            <Tabs.TabPane key="downloaded" tab="本地库存" class="overflow-auto">
+            <Tabs.TabPane key="downloaded" tab="本地库存" class="overflow-auto" forceRender>
               <DownloadedPane />
             </Tabs.TabPane>
-            <Tabs.TabPane key="comic" tab="漫画详情" class="overflow-auto">
+            <Tabs.TabPane key="comic" tab="漫画详情" class="overflow-auto" forceRender>
               {searchPane.value && <ComicPane searchByTag={searchPane.value.searchByTag} />}
             </Tabs.TabPane>
           </Tabs>

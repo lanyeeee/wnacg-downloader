@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { Comic, Config, GetFavoriteResult, SearchResult, UserProfile } from './bindings.ts'
+import { Comic, commands, Config, GetFavoriteResult, SearchResult, UserProfile } from './bindings.ts'
 import { CurrentTabName, ProgressData } from './types.ts'
 import { ref } from 'vue'
 
@@ -11,6 +11,19 @@ export const useStore = defineStore('store', () => {
   const progresses = ref<Map<number, ProgressData>>(new Map())
   const getFavoriteResult = ref<GetFavoriteResult>()
   const searchResult = ref<SearchResult>()
+  const covers = ref<Map<number, string>>(new Map())
+
+  async function loadCover(id: number, url: string) {
+    const result = await commands.getCoverData(url)
+    if (result.status === 'error') {
+      console.error(result.error)
+      return
+    }
+    const coverData: number[] = result.data
+    const coverBlob = new Blob([new Uint8Array(coverData)])
+    const cover = URL.createObjectURL(coverBlob)
+    covers.value.set(id, cover)
+  }
 
   return {
     config,
@@ -20,5 +33,7 @@ export const useStore = defineStore('store', () => {
     progresses,
     getFavoriteResult,
     searchResult,
+    covers,
+    loadCover,
   }
 })

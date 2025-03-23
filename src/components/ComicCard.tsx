@@ -1,4 +1,4 @@
-import { defineComponent, PropType } from 'vue'
+import { computed, defineComponent, onMounted, PropType } from 'vue'
 import { useStore } from '../store.ts'
 import { commands, Shelf } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
@@ -49,6 +49,16 @@ export default defineComponent({
   setup(props) {
     const store = useStore()
 
+    const cover = computed<string | undefined>(() => store.covers.get(props.comicId))
+
+    onMounted(async () => {
+      if (cover.value !== undefined) {
+        return
+      }
+
+      await store.loadCover(props.comicId, props.comicCover)
+    })
+
     // 获取漫画信息，将漫画信息存入pickedComic，并切换到漫画详情
     async function pickComic() {
       const result = await commands.getComic(props.comicId)
@@ -79,7 +89,7 @@ export default defineComponent({
         <div class="flex h-full">
           <img
             class="w-24 object-contain mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
-            src={props.comicCover}
+            src={cover.value}
             alt=""
             onClick={pickComic}
           />

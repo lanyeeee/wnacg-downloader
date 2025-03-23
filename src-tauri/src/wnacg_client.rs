@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use image::ImageFormat;
 use parking_lot::RwLock;
-use reqwest::StatusCode;
+use reqwest::{Client, StatusCode};
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,8 @@ use crate::{
     config::Config,
     types::{Comic, DownloadFormat, GetFavoriteResult, ImgList, SearchResult, UserProfile},
 };
+
+const API_DOMAIN: &str = "www.wnacg01.cc";
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,16 +30,19 @@ pub struct WnacgClient {
     app: AppHandle,
     api_client: ClientWithMiddleware,
     img_client: ClientWithMiddleware,
+    cover_client: Client,
 }
 
 impl WnacgClient {
     pub fn new(app: AppHandle) -> Self {
         let api_client = create_api_client();
         let img_client = create_img_client();
+        let cover_client = Client::new();
         Self {
             app,
             api_client,
             img_client,
+            cover_client,
         }
     }
 
@@ -49,7 +54,8 @@ impl WnacgClient {
         // 发送登录请求
         let http_resp = self
             .api_client
-            .post("https://www.wn01.uk/users-check_login.html")
+            .post(format!("https://{API_DOMAIN}/users-check_login.html"))
+            .header("referer", format!("https://{API_DOMAIN}/"))
             .form(&form)
             .send()
             .await?;
@@ -85,8 +91,9 @@ impl WnacgClient {
         // 发送获取用户信息请求
         let http_resp = self
             .api_client
-            .get("https://www.wn01.uk/users.html")
+            .get(format!("https://{API_DOMAIN}/users.html"))
             .header("cookie", cookie)
+            .header("referer", format!("https://{API_DOMAIN}/"))
             .send()
             .await?;
         // 检查http响应状态码
@@ -113,7 +120,8 @@ impl WnacgClient {
         });
         let http_resp = self
             .api_client
-            .get("https://www.wn01.uk/search/index.php")
+            .get(format!("https://{API_DOMAIN}/search/index.php"))
+            .header("referer", format!("https://{API_DOMAIN}/"))
             .query(&params)
             .send()
             .await?;
@@ -132,8 +140,13 @@ impl WnacgClient {
         tag_name: &str,
         page_num: i64,
     ) -> anyhow::Result<SearchResult> {
-        let url = format!("https://www.wn01.uk/albums-index-page-{page_num}-tag-{tag_name}.html");
-        let http_resp = self.api_client.get(url).send().await?;
+        let url = format!("https://{API_DOMAIN}/albums-index-page-{page_num}-tag-{tag_name}.html");
+        let http_resp = self
+            .api_client
+            .get(url)
+            .header("referer", format!("https://{API_DOMAIN}/"))
+            .send()
+            .await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
@@ -145,8 +158,13 @@ impl WnacgClient {
     }
 
     pub async fn get_img_list(&self, id: i64) -> anyhow::Result<ImgList> {
-        let url = format!("https://www.wn01.uk/photos-gallery-aid-{id}.html");
-        let http_resp = self.api_client.get(url).send().await?;
+        let url = format!("https://{API_DOMAIN}/photos-gallery-aid-{id}.html");
+        let http_resp = self
+            .api_client
+            .get(url)
+            .header("referer", format!("https://{API_DOMAIN}/"))
+            .send()
+            .await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
@@ -179,7 +197,8 @@ impl WnacgClient {
     pub async fn get_comic(&self, id: i64) -> anyhow::Result<Comic> {
         let http_resp = self
             .api_client
-            .get(format!("https://www.wn01.uk/photos-index-aid-{id}.html"))
+            .get(format!("https://{API_DOMAIN}/photos-index-aid-{id}.html"))
+            .header("referer", format!("https://{API_DOMAIN}/"))
             .send()
             .await?;
         let status = http_resp.status();
@@ -202,11 +221,12 @@ impl WnacgClient {
     ) -> anyhow::Result<GetFavoriteResult> {
         let cookie = self.app.state::<RwLock<Config>>().read().cookie.clone();
         // 发送获取收藏夹请求
-        let url = format!("https://www.wn01.uk/users-users_fav-page-{page_num}-c-{shelf_id}.html");
+        let url = format!("https://{API_DOMAIN}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
         let http_resp = self
             .api_client
             .get(url)
             .header("cookie", cookie)
+            .header("referer", format!("https://{API_DOMAIN}/"))
             .send()
             .await?;
         // 检查http响应状态码
@@ -223,7 +243,12 @@ impl WnacgClient {
 
     pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {
         // 发送下载图片请求
-        let http_resp = self.img_client.get(url).send().await?;
+        let http_resp = self
+            .img_client
+            .get(url)
+            .header("referer", format!("https://{API_DOMAIN}/"))
+            .send()
+            .await?;
         // 检查http响应状态码
         let status = http_resp.status();
         if status == StatusCode::TOO_MANY_REQUESTS {
@@ -280,6 +305,22 @@ impl WnacgClient {
 
         Ok((Bytes::from(converted_data), target_format))
     }
+
+    pub async fn get_cover_data(&self, cover_url: &str) -> anyhow::Result<Bytes> {
+        let http_resp = self
+            .cover_client
+            .get(cover_url)
+            .header("referer", format!("https://{API_DOMAIN}/"))
+            .send()
+            .await?;
+        let status = http_resp.status();
+        if status != StatusCode::OK {
+            let body = http_resp.text().await?;
+            return Err(anyhow!("预料之外的状态码({status}): {body}"));
+        }
+        let cover_data = http_resp.bytes().await?;
+        Ok(cover_data)
+    }
 }
 
 fn create_api_client() -> ClientWithMiddleware {
@@ -291,7 +332,6 @@ fn create_api_client() -> ClientWithMiddleware {
     let client = reqwest::ClientBuilder::new()
         .use_rustls_tls()
         .timeout(Duration::from_secs(3)) // 每个请求超过3秒就超时
-        .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
 

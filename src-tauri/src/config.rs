@@ -14,6 +14,8 @@ pub struct Config {
     pub export_dir: PathBuf,
     pub enable_file_logger: bool,
     pub download_format: DownloadFormat,
+    pub comic_concurrency: usize,
+    pub img_concurrency: usize,
 }
 
 impl Config {
@@ -74,6 +76,8 @@ impl Config {
             export_dir: app_data_dir.join("漫画导出"),
             enable_file_logger: true,
             download_format: DownloadFormat::Jpeg,
+            comic_concurrency: 2,
+            img_concurrency: 10,
         }
     }
 }

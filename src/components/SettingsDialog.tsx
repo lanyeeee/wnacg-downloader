@@ -1,6 +1,6 @@
 import { defineComponent } from 'vue'
 import { useStore } from '../store.ts'
-import { Button, Modal, Radio, RadioGroup, Tooltip } from 'ant-design-vue'
+import { Button, InputNumber, Modal, Radio, RadioGroup, Tooltip, message } from 'ant-design-vue'
 import { commands } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
 import { appDataDir } from '@tauri-apps/api/path'
@@ -88,6 +88,34 @@ export default defineComponent({
                 <Radio value="Original">原始格式</Radio>
               </Tooltip>
             </RadioGroup>
+          </div>
+          <div class="flex gap-1">
+            <InputNumber
+              size="small"
+              min={1}
+              addonBefore="漫画并发数"
+              value={store.config?.comicConcurrency}
+              onUpdate:value={async (value) => {
+                if (store.config) {
+                  message.warning('对漫画并发数的修改需要重启才能生效')
+                  store.config.comicConcurrency = value as number
+                }
+              }}
+            />
+          </div>
+          <div class="flex gap-1">
+            <InputNumber
+              size="small"
+              min={1}
+              addonBefore="图片并发数"
+              value={store.config?.imgConcurrency}
+              onUpdate:value={async (value) => {
+                if (store.config) {
+                  message.warning('对图片并发数的修改需要重启才能生效')
+                  store.config.imgConcurrency = value as number
+                }
+              }}
+            />
           </div>
         </div>
         <div class="flex justify-end mt-4">

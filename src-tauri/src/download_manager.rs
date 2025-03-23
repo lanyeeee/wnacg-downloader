@@ -58,10 +58,16 @@ pub enum DownloadTaskState {
 
 impl DownloadManager {
     pub fn new(app: &AppHandle) -> Self {
+        let (comic_concurrency, img_concurrency) = {
+            let config = app.state::<RwLock<Config>>();
+            let config = config.read();
+            (config.comic_concurrency, config.img_concurrency)
+        };
+
         let manager = DownloadManager {
             app: app.clone(),
-            comic_sem: Arc::new(Semaphore::new(3)),
-            img_sem: Arc::new(Semaphore::new(30)),
+            comic_sem: Arc::new(Semaphore::new(comic_concurrency)),
+            img_sem: Arc::new(Semaphore::new(img_concurrency)),
             byte_per_sec: Arc::new(AtomicU64::new(0)),
             download_tasks: Arc::new(RwLock::new(HashMap::new())),
         };

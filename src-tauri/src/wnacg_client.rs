@@ -252,7 +252,7 @@ impl WnacgClient {
         // 检查http响应状态码
         let status = http_resp.status();
         if status == StatusCode::TOO_MANY_REQUESTS {
-            return Err(anyhow!("IP被封，请稍后再试或换条代理线路"));
+            return Err(anyhow!("IP被封，请在更多设置中减少并发数或设置下载完成后的休息时间，以此降低下载速度，稍后再试"));
         } else if status != StatusCode::OK {
             let body = http_resp.text().await?;
             return Err(anyhow!("预料之外的状态码({status}): {body}"));

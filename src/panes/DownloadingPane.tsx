@@ -18,9 +18,15 @@ export default defineComponent({
     const downloadSpeed = ref<string>('')
 
     onMounted(async () => {
-      // 监听下载事件
       await events.downloadSpeedEvent.listen(async ({ payload: { speed } }) => {
         downloadSpeed.value = speed
+      })
+
+      await events.downloadSleepingEvent.listen(async ({ payload: { comicId, remainingSec } }) => {
+        const progressData = store.progresses.get(comicId)
+        if (progressData !== undefined) {
+          progressData.indicator = `将在${remainingSec}秒后继续下载`
+        }
       })
 
       await events.downloadTaskEvent.listen(({ payload: downloadTaskEvent }) => {

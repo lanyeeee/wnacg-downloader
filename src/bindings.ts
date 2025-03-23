@@ -148,12 +148,14 @@ async getCoverData(coverUrl: string) : Promise<Result<number[], CommandError>> {
 
 
 export const events = __makeEvents__<{
+downloadSleepingEvent: DownloadSleepingEvent,
 downloadSpeedEvent: DownloadSpeedEvent,
 downloadTaskEvent: DownloadTaskEvent,
 exportCbzEvent: ExportCbzEvent,
 exportPdfEvent: ExportPdfEvent,
 logEvent: LogEvent
 }>({
+downloadSleepingEvent: "download-sleeping-event",
 downloadSpeedEvent: "download-speed-event",
 downloadTaskEvent: "download-task-event",
 exportCbzEvent: "export-cbz-event",
@@ -256,8 +258,9 @@ additionalInfo: string;
  */
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat }
+export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number }
 export type DownloadFormat = "Jpeg" | "Png" | "Webp" | "Original"
+export type DownloadSleepingEvent = { comicId: number; remainingSec: number }
 export type DownloadSpeedEvent = { speed: string }
 export type DownloadTaskEvent = { state: DownloadTaskState; comic: Comic; downloadedImgCount: number; totalImgCount: number }
 export type DownloadTaskState = "Pending" | "Downloading" | "Paused" | "Cancelled" | "Completed" | "Failed"

@@ -13,7 +13,10 @@ mod wnacg_client;
 use anyhow::Context;
 use config::Config;
 use download_manager::DownloadManager;
-use events::{DownloadSpeedEvent, DownloadTaskEvent, ExportCbzEvent, ExportPdfEvent, LogEvent};
+use events::{
+    DownloadSleepingEvent, DownloadSpeedEvent, DownloadTaskEvent, ExportCbzEvent, ExportPdfEvent,
+    LogEvent,
+};
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use wnacg_client::WnacgClient;
@@ -54,6 +57,7 @@ pub fn run() {
             DownloadSpeedEvent,
             ExportPdfEvent,
             ExportCbzEvent,
+            DownloadSleepingEvent,
         ]);
 
     #[cfg(debug_assertions)]

@@ -37,6 +37,13 @@ pub struct DownloadSpeedEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadSleepingEvent {
+    pub comic_id: i64,
+    pub remaining_sec: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 #[serde(tag = "event", content = "data")]
 pub enum ExportPdfEvent {
     #[serde(rename_all = "camelCase")]

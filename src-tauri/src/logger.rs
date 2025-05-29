@@ -130,7 +130,7 @@ where
     }
     let logs_dir = logs_dir(app).context("获取日志目录失败")?;
     let file_appender = RollingFileAppender::builder()
-        .filename_prefix("manhuagui-downloader")
+        .filename_prefix("wnacg-downloader")
         .filename_suffix("log")
         .rotation(Rotation::DAILY)
         .build(&logs_dir)

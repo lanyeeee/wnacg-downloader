@@ -1,12 +1,13 @@
 import { computed, defineComponent, ref, watch } from 'vue'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
-import { Empty, Select } from 'ant-design-vue'
+import { Empty, Pagination, Select } from 'ant-design-vue'
 import ComicCard from '../components/ComicCard.tsx'
 
 export default defineComponent({
   name: 'FavoritePane',
   setup() {
+    const PAGE_SIZE = 12
     const store = useStore()
 
     const shelfIdSelected = ref<number>(0)
@@ -19,6 +20,13 @@ export default defineComponent({
         value: shelf.id,
       })),
     )
+
+    const totalForPagination = computed(() => {
+      if (store.getFavoriteResult === undefined) {
+        return 1
+      }
+      return store.getFavoriteResult.totalPage * PAGE_SIZE
+    })
 
     watch(
       () => store.userProfile,
@@ -45,6 +53,15 @@ export default defineComponent({
       if (comicCardContainer.value !== undefined) {
         comicCardContainer.value.scrollTo({ top: 0, behavior: 'instant' })
       }
+    }
+
+    async function onPageChange(page: number) {
+      if (store.getFavoriteResult === undefined) {
+        return
+      }
+
+      currentPage.value = page
+      await getFavourite(shelfIdSelected.value, page)
     }
 
     return () => {
@@ -85,6 +102,15 @@ export default defineComponent({
               ))}
             </div>
           </div>
+          <Pagination
+            class="p-2 mt-auto"
+            current={currentPage.value}
+            pageSize={PAGE_SIZE}
+            total={totalForPagination.value}
+            showSizeChanger={false}
+            simple
+            onUpdate:current={async (pageNum) => await onPageChange(pageNum)}
+          />
         </div>
       )
     }

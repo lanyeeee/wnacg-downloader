@@ -23,8 +23,9 @@ impl GetFavoriteResult {
 
         let mut comics = Vec::new();
         for comic_div in document.select(&Selector::parse(".asTB").to_anyhow()?) {
-            let comic = ComicInFavorite::from_div(app, &comic_div)?;
-            comics.push(comic);
+            if let Ok(comic) = ComicInFavorite::from_div(app, &comic_div) {
+                comics.push(comic);
+            }
         }
 
         let current_page = match document

@@ -17,7 +17,7 @@ export default defineComponent({
   setup() {
     const store = useStore()
 
-    notification.config({ placement: 'bottomRight' })
+    notification.config({ placement: 'bottomRight', maxCount: 3 })
 
     const logViewerShowing = ref<boolean>(false)
     const loginDialogShowing = ref<boolean>(false)

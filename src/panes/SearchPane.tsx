@@ -1,5 +1,5 @@
 import { computed, defineComponent, ref, watch } from 'vue'
-import { Input, notification, Button, Pagination } from 'ant-design-vue'
+import { Input, Button, Pagination, message } from 'ant-design-vue'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
 import ComicCard from '../components/ComicCard.tsx'
@@ -92,7 +92,7 @@ export default defineComponent({
     async function pickComic() {
       const comicId = getComicIdFromComicIdInput()
       if (comicId === undefined) {
-        notification.error({ message: '漫画ID格式错误', description: '请输入漫画ID或漫画链接' })
+        message.error('漫画ID格式错误，请输入漫画ID或漫画链接')
         return
       }
 

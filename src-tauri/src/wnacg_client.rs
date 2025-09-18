@@ -16,7 +16,7 @@ use crate::{
     types::{Comic, DownloadFormat, GetFavoriteResult, ImgList, SearchResult, UserProfile},
 };
 
-const API_DOMAIN: &str = "www.wnacg01.cc";
+const API_DOMAIN: &str = "www.wnacg03.cc";
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,6 +1,6 @@
 import { defineComponent } from 'vue'
 import { useStore } from '../store.ts'
-import { Button, InputNumber, Modal, Radio, RadioGroup, Tooltip, message } from 'ant-design-vue'
+import { Button, InputNumber, Modal, Radio, RadioGroup, Tooltip, message, Checkbox } from 'ant-design-vue'
 import { commands } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
 import { appDataDir } from '@tauri-apps/api/path'
@@ -89,6 +89,29 @@ export default defineComponent({
               </Tooltip>
             </RadioGroup>
           </div>
+
+          <Tooltip
+            placement="top"
+            v-slots={{
+              title: () => (
+                <>
+                  <div class="text-red">可能导致 导出pdf 时图片顺序混乱</div>
+                  <div>因为pdf的图片是根据文件名排序的</div>
+                </>
+              ),
+            }}>
+            <Checkbox
+              class="w-fit"
+              value={store.config?.useOriginalFilename}
+              onUpdate:checked={(value) => {
+                if (store.config) {
+                  store.config.useOriginalFilename = value
+                }
+              }}>
+              使用图片原文件名
+            </Checkbox>
+          </Tooltip>
+
           <div class="flex gap-1">
             <InputNumber
               size="small"
@@ -115,6 +138,7 @@ export default defineComponent({
               }}
             />
           </div>
+
           <div class="flex gap-1">
             <InputNumber
               size="small"
@@ -142,6 +166,7 @@ export default defineComponent({
             />
           </div>
         </div>
+
         <div class="flex justify-end mt-4">
           <Button size="small" onClick={showConfigPathInFileManager}>
             打开配置目录

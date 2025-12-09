@@ -581,9 +581,7 @@ impl DownloadImgTask {
         let download_format = self.app.state::<RwLock<Config>>().read().download_format;
         if let Some(extension) = download_format.extension() {
             // 如果图片已存在，则跳过下载
-            let save_path = self
-                .temp_download_dir
-                .join(format!("{:04}.{extension}", self.index + 1));
+            let save_path = self.get_save_path(extension);
             if save_path.exists() {
                 tracing::trace!(comic_id, comic_title, url, "图片已存在，跳过下载");
                 self.download_task
@@ -619,9 +617,7 @@ impl DownloadImgTask {
             }
         };
 
-        let save_path = self
-            .temp_download_dir
-            .join(format!("{:04}.{extension}", self.index + 1));
+        let save_path = self.get_save_path(extension);
         // 保存图片
         if let Err(err) = std::fs::write(&save_path, &img_data).map_err(anyhow::Error::from) {
             let err_title = format!("保存图片`{save_path:?}`失败");
@@ -647,6 +643,29 @@ impl DownloadImgTask {
             .read()
             .img_download_interval_sec;
         sleep(Duration::from_secs(img_download_interval_sec)).await;
+    }
+
+    fn get_save_path(&self, extension: &str) -> PathBuf {
+        let use_original_filename = self
+            .app
+            .state::<RwLock<Config>>()
+            .read()
+            .use_original_filename;
+
+        let index_filename = format!("{:04}", self.index + 1);
+        let filename = if use_original_filename {
+            let original_filename = self
+                .url
+                .rsplit('/')
+                .next()
+                .and_then(|s| s.split('.').next())
+                .unwrap_or(&index_filename);
+            format!("{original_filename}.{extension}")
+        } else {
+            format!("{index_filename}.{extension}")
+        };
+
+        self.temp_download_dir.join(filename)
     }
 
     async fn acquire_img_permit<'a>(

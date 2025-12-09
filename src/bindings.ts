@@ -258,7 +258,7 @@ additionalInfo: string;
  */
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number }
+export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; useOriginalFilename: boolean }
 export type DownloadFormat = "Jpeg" | "Png" | "Webp" | "Original"
 export type DownloadSleepingEvent = { comicId: number; remainingSec: number }
 export type DownloadSpeedEvent = { speed: string }

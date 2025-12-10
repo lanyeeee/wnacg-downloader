@@ -8,7 +8,7 @@ import { useStore } from '../store.ts'
 type LogRecord = LogEvent & { id: number; formatedLog: string }
 
 export default defineComponent({
-  name: 'LogViewer',
+  name: 'LogDialog',
   props: {
     showing: {
       type: Boolean,

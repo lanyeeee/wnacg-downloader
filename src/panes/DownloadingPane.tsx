@@ -6,7 +6,7 @@ import { Button, Input, Tabs } from 'ant-design-vue'
 import UncompletedProgresses from '../components/UncompletedProgresses.tsx'
 import CompletedProgress from '../components/CompletedProgress.tsx'
 import styles from '../styles/DownloadingPane.module.css'
-import SettingsDialog from '../components/SettingsDialog.tsx'
+import SettingsDialog from '../dialogs/SettingsDialog.tsx'
 
 export default defineComponent({
   name: 'DownloadingPane',

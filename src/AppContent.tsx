@@ -1,10 +1,10 @@
 import { defineComponent, onMounted, ref, watch } from 'vue'
 import { useStore } from './store.ts'
 import { commands } from './bindings.ts'
-import LogViewer from './components/LogViewer.tsx'
+import LogDialog from './dialogs/LogDialog.tsx'
 import { notification, message, Button, Input, Avatar, Tabs } from 'ant-design-vue'
-import LoginDialog from './components/LoginDialog.tsx'
-import AboutDialog from './components/AboutDialog.tsx'
+import LoginDialog from './dialogs/LoginDialog.tsx'
+import AboutDialog from './dialogs/AboutDialog.tsx'
 import DownloadingPane from './panes/DownloadingPane.tsx'
 import SearchPane from './panes/SearchPane.tsx'
 import ComicPane from './panes/ComicPane.tsx'
@@ -19,7 +19,7 @@ export default defineComponent({
 
     notification.config({ placement: 'bottomRight', maxCount: 3 })
 
-    const logViewerShowing = ref<boolean>(false)
+    const logDialogShowing = ref<boolean>(false)
     const loginDialogShowing = ref<boolean>(false)
     const aboutDialogShowing = ref<boolean>(false)
 
@@ -106,7 +106,7 @@ export default defineComponent({
           <Button type="primary" onClick={() => (loginDialogShowing.value = true)}>
             账号登录
           </Button>
-          <Button onClick={() => (logViewerShowing.value = true)}>日志</Button>
+          <Button onClick={() => (logDialogShowing.value = true)}>日志</Button>
           <Button onClick={() => (aboutDialogShowing.value = true)}>关于</Button>
           {store.userProfile && (
             <div class="flex items-center">
@@ -118,9 +118,9 @@ export default defineComponent({
             showing={loginDialogShowing.value}
             onUpdate:showing={(showing) => (loginDialogShowing.value = showing)}
           />
-          <LogViewer
-            showing={logViewerShowing.value}
-            onUpdate:showing={(showing) => (logViewerShowing.value = showing)}
+          <LogDialog
+            showing={logDialogShowing.value}
+            onUpdate:showing={(showing) => (logDialogShowing.value = showing)}
           />
           <AboutDialog
             showing={aboutDialogShowing.value}

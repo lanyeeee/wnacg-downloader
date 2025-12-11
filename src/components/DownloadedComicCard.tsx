@@ -1,7 +1,7 @@
 import { computed, defineComponent, onMounted, PropType } from 'vue'
 import { useStore } from '../store.ts'
 import { Comic, commands } from '../bindings.ts'
-import { Button, Card } from 'ant-design-vue'
+import { NButton, NCard } from 'naive-ui'
 import { path } from '@tauri-apps/api'
 
 export default defineComponent({
@@ -60,7 +60,7 @@ export default defineComponent({
     }
 
     return () => (
-      <Card hoverable={true} class="cursor-auto rounded-none" bodyStyle={{ padding: '0.25rem' }}>
+      <NCard hoverable content-style="padding: 0.25rem;">
         <div class="flex h-full">
           <img
             class="w-24 object-contain mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
@@ -77,19 +77,19 @@ export default defineComponent({
             <span>分类：{props.comic.category}</span>
             <span>页数：{props.comic.imageCount}P</span>
             <div class="flex mt-auto gap-col-2">
-              <Button size="small" onClick={showComicDirInFileManager}>
+              <NButton size="tiny" onClick={showComicDirInFileManager}>
                 打开目录
-              </Button>
-              <Button class="ml-auto" size="small" onClick={exportPdf}>
+              </NButton>
+              <NButton class="ml-auto" size="tiny" onClick={exportPdf}>
                 导出pdf
-              </Button>
-              <Button size="small" onClick={exportCbz}>
+              </NButton>
+              <NButton size="tiny" onClick={exportCbz}>
                 导出cbz
-              </Button>
+              </NButton>
             </div>
           </div>
         </div>
-      </Card>
+      </NCard>
     )
   },
 })

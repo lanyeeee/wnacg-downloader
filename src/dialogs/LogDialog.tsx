@@ -1,5 +1,17 @@
 import { computed, defineComponent, onMounted, ref, watch } from 'vue'
-import { notification, Modal, Input, Select, Button, Checkbox } from 'ant-design-vue'
+import {
+  darkTheme,
+  useNotification,
+  NModal,
+  NDialog,
+  NInputGroup,
+  NInput,
+  NSelect,
+  NButton,
+  NCheckbox,
+  NConfigProvider,
+  NVirtualList,
+} from 'naive-ui'
 import { commands, events, LogEvent, LogLevel } from '../bindings.ts'
 import { appDataDir } from '@tauri-apps/api/path'
 import { path } from '@tauri-apps/api'
@@ -21,11 +33,14 @@ export default defineComponent({
   setup(props, { emit }) {
     const store = useStore()
 
+    const notification = useNotification()
+
+    let nextLogRecordId = 1
+
     const logRecords = ref<LogRecord[]>([])
     const searchText = ref<string>('')
     const selectedLevel = ref<LogLevel>('INFO')
     const logsDirSize = ref<number>(0)
-    let nextLogRecordId = 1
 
     const formatedLogsDirSize = computed<string>(() => {
       const units = ['B', 'KB', 'MB']
@@ -67,16 +82,14 @@ export default defineComponent({
     watch(
       () => props.showing,
       async (showing) => {
-        if (!showing) {
-          return
+        if (showing) {
+          const result = await commands.getLogsDirSize()
+          if (result.status === 'error') {
+            console.error(result.error)
+            return
+          }
+          logsDirSize.value = result.data
         }
-
-        const result = await commands.getLogsDirSize()
-        if (result.status === 'error') {
-          console.error(result.error)
-          return
-        }
-        logsDirSize.value = result.data
       },
     )
 
@@ -90,7 +103,7 @@ export default defineComponent({
         const { level, fields } = logEvent
         if (level === 'ERROR') {
           notification.error({
-            message: fields['err_title'] as string,
+            title: fields['err_title'] as string,
             description: fields['message'] as string,
             duration: 0,
           })
@@ -98,103 +111,119 @@ export default defineComponent({
       })
     })
 
+    function formatLogEvent(logEvent: LogEvent): string {
+      const { timestamp, level, fields, target, filename, line_number } = logEvent
+      const fields_str = Object.entries(fields)
+        .sort(([key1], [key2]) => key1.localeCompare(key2))
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' ')
+      return `${timestamp} ${level} ${target}: ${filename}:${line_number} ${fields_str}`
+    }
+
+    function getLevelStyles(level: LogLevel) {
+      switch (level) {
+        case 'TRACE':
+          return 'text-gray-400'
+        case 'DEBUG':
+          return 'text-green-400'
+        case 'INFO':
+          return 'text-blue-400'
+        case 'WARN':
+          return 'text-yellow-400'
+        case 'ERROR':
+          return 'text-red-400'
+      }
+    }
+
+    const logLevelOptions = [
+      { value: 'TRACE', label: 'TRACE' },
+      { value: 'DEBUG', label: 'DEBUG' },
+      { value: 'INFO', label: 'INFO' },
+      { value: 'WARN', label: 'WARN' },
+      { value: 'ERROR', label: 'ERROR' },
+    ]
+
     function clearLogRecords() {
       logRecords.value = []
       nextLogRecordId = 1
     }
 
-    return () => (
-      <Modal
-        title={<div class="flex items-center">日志目录总大小：{formatedLogsDirSize.value}</div>}
-        open={props.showing}
-        onCancel={() => emit('update:showing', false)}
-        width="95%"
-        footer={null}>
-        <div class="mb-2 flex flex-wrap gap-2">
-          <Input
-            class="w-40%"
-            size="small"
-            placeholder="搜索日志..."
-            value={searchText.value}
-            onUpdate:value={(value) => (searchText.value = value)}
-            allowClear
-          />
-          <Select
-            class="w-25"
-            size="small"
-            value={selectedLevel.value}
-            onUpdate:value={(value) => (selectedLevel.value = value as LogLevel)}
-            options={logLevelOptions}
-          />
-          <div class="flex flex-wrap gap-2 ml-auto">
-            <Button size="small" onClick={showLogsDirInFileManager}>
-              打开日志目录
-            </Button>
-            <Checkbox
-              class="select-none"
-              checked={store.config?.enableFileLogger}
-              onUpdate:checked={(value) => {
-                if (store.config) {
-                  store.config.enableFileLogger = value
-                }
-              }}>
-              输出文件日志
-            </Checkbox>
-          </div>
-        </div>
+    async function showLogsDirInFileManager() {
+      const logsDir = await path.join(await appDataDir(), '日志')
+      const result = await commands.showPathInFileManager(logsDir)
+      if (result.status === 'error') {
+        console.error(result.error)
+      }
+    }
 
-        <div class="h-[calc(100vh-300px)] overflow-auto bg-gray-900 p-3">
-          {filteredLogs.value.map(({ id, level, formatedLog }) => (
-            <div key={id} class={`p-1 hover:bg-white/10 whitespace-pre-wrap ${getLevelStyles(level)}`}>
-              {formatedLog}
+    return () =>
+      store.config !== undefined && (
+        <NModal show={props.showing} onUpdate:show={(value) => emit('update:showing', value)}>
+          <NDialog
+            showIcon={false}
+            title={`日志目录总大小：${formatedLogsDirSize.value}`}
+            onClose={() => emit('update:showing', false)}
+            style="width: 95%">
+            <div class="mb-2 flex flex-wrap gap-2">
+              <NInputGroup class="w-100">
+                <NInput
+                  size="small"
+                  value={searchText.value}
+                  onUpdate:value={(value) => (searchText.value = value)}
+                  placeholder="搜索日志..."
+                  clearable
+                />
+                <NSelect
+                  size="small"
+                  value={selectedLevel.value}
+                  onUpdate:value={(value) => (selectedLevel.value = value as LogLevel)}
+                  options={logLevelOptions}
+                  style="width: 120px"
+                />
+              </NInputGroup>
+
+              <div class="flex flex-wrap gap-2 ml-auto items-center">
+                <NButton size="small" onClick={showLogsDirInFileManager}>
+                  打开日志目录
+                </NButton>
+                <NCheckbox
+                  checked={store.config.enableFileLogger}
+                  onUpdate:checked={(value) => {
+                    if (store.config) {
+                      store.config.enableFileLogger = value
+                    }
+                  }}>
+                  输出文件日志
+                </NCheckbox>
+              </div>
             </div>
-          ))}
-        </div>
-        <div class="pt-1 flex">
-          <Button class="ml-auto" size="small" onClick={clearLogRecords} danger>
-            清空日志浏览器
-          </Button>
-        </div>
-      </Modal>
-    )
+
+            <NConfigProvider theme={darkTheme} theme-overrides={{ Scrollbar: { width: '8px' } }}>
+              <NVirtualList
+                class="h-[calc(100vh-300px)] overflow-hidden bg-gray-900"
+                itemSize={42}
+                itemResizable
+                items={filteredLogs.value}
+                scrollbar-props={{ trigger: 'none' }}>
+                {{
+                  default: ({ item: { level, formatedLog } }: { item: LogRecord }) => {
+                    return (
+                      <div class={['py-1 px-3 hover:bg-white/10 whitespace-pre-wrap mr-4', getLevelStyles(level)]}>
+                        {formatedLog}
+                      </div>
+                    )
+                  },
+                }}
+              </NVirtualList>
+            </NConfigProvider>
+
+            <div class="pt-1 flex">
+              <NButton ghost class="ml-auto" size="small" type="error" onClick={clearLogRecords}>
+                清空日志浏览器
+              </NButton>
+            </div>
+          </NDialog>
+        </NModal>
+      )
   },
 })
-
-function getLevelStyles(level: LogLevel) {
-  switch (level) {
-    case 'TRACE':
-      return 'text-gray-400'
-    case 'DEBUG':
-      return 'text-green-400'
-    case 'INFO':
-      return 'text-blue-400'
-    case 'WARN':
-      return 'text-yellow-400'
-    case 'ERROR':
-      return 'text-red-400'
-  }
-}
-
-const logLevelOptions = [
-  { value: 'TRACE', label: 'TRACE' },
-  { value: 'DEBUG', label: 'DEBUG' },
-  { value: 'INFO', label: 'INFO' },
-  { value: 'WARN', label: 'WARN' },
-  { value: 'ERROR', label: 'ERROR' },
-]
-
-function formatLogEvent(logEvent: LogEvent): string {
-  const { timestamp, level, fields, target, filename, line_number } = logEvent
-  const fields_str = Object.entries(fields)
-    .map(([key, value]) => `${key}=${value}`)
-    .join(' ')
-  return `${timestamp} ${level} ${target}: ${filename}:${line_number} ${fields_str}`
-}
-
-async function showLogsDirInFileManager() {
-  const logsDir = await path.join(await appDataDir(), '日志')
-  const result = await commands.showPathInFileManager(logsDir)
-  if (result.status === 'error') {
-    console.error(result.error)
-  }
-}

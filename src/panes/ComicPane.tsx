@@ -2,7 +2,7 @@ import { computed, defineComponent, onMounted, PropType, watch } from 'vue'
 import { useStore } from '../store.ts'
 import { commands, events } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
-import { Empty, Button } from 'ant-design-vue'
+import { NEmpty, NButton } from 'naive-ui'
 import DownloadButton from '../components/DownloadButton.tsx'
 
 export default defineComponent({
@@ -59,7 +59,7 @@ export default defineComponent({
 
     return () => {
       if (store.pickedComic === undefined) {
-        return <Empty description="请先选择漫画(漫画搜索、漫画收藏、本地库存)" />
+        return <NEmpty description="请先选择漫画(漫画搜索、我的书架、本地库存)" />
       }
 
       return (
@@ -73,9 +73,9 @@ export default defineComponent({
               <span>页数：{store.pickedComic.imageCount}P</span>
               <div class="flex flex-col mt-auto gap-row-2">
                 {store.pickedComic.isDownloaded && (
-                  <Button size="small" onClick={showComicDirInFileManager}>
+                  <NButton size="small" onClick={showComicDirInFileManager}>
                     打开目录
-                  </Button>
+                  </NButton>
                 )}
                 <DownloadButton
                   class="mt-auto"
@@ -92,14 +92,14 @@ export default defineComponent({
             <div class="font-bold">标签</div>
             <div class="flex flex-wrap gap-1">
               {store.pickedComic.tags.map((tag) => (
-                <Button
+                <NButton
                   key={tag.url}
-                  shape="round"
-                  size="small"
+                  round
+                  size="tiny"
                   class="hover:scale-110 transition-transform duration-100"
                   onClick={() => props.searchByTag(tag.name, 1)}>
                   {tag.name}
-                </Button>
+                </NButton>
               ))}
             </div>
           </div>

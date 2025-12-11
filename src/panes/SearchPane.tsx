@@ -1,5 +1,5 @@
-import { computed, defineComponent, ref, watch } from 'vue'
-import { Input, Button, Pagination, message } from 'ant-design-vue'
+import { defineComponent, ref, watch } from 'vue'
+import { NInput, NButton, NPagination, useMessage, NInputGroup, NInputGroupLabel } from 'naive-ui'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
 import ComicCard from '../components/ComicCard.tsx'
@@ -7,21 +7,15 @@ import ComicCard from '../components/ComicCard.tsx'
 export default defineComponent({
   name: 'SearchPane',
   setup() {
-    const PAGE_SIZE = 24
     const store = useStore()
+
+    const message = useMessage()
 
     const searchByKeywordInput = ref<string>('')
     const searchByTagInput = ref<string>('')
     const searchByComicIdInput = ref<string>('')
     const currentPage = ref<number>(1)
     const comicCardContainer = ref<HTMLElement>()
-
-    const totalForPagination = computed(() => {
-      if (store.searchResult === undefined) {
-        return 1
-      }
-      return store.searchResult.totalPage * PAGE_SIZE
-    })
 
     watch(
       () => store.searchResult,
@@ -108,74 +102,86 @@ export default defineComponent({
 
     const render = () => (
       <div class="h-full flex flex-col">
-        <div class="flex">
-          <Input
-            addonBefore="关键词"
+        <NInputGroup>
+          <NInputGroupLabel size="small">关键词</NInputGroupLabel>
+          <NInput
             size="small"
+            placeholder=""
             value={searchByKeywordInput.value}
             onUpdate:value={(value) => (searchByKeywordInput.value = value)}
-            allowClear
-            onPressEnter={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}
-          />
-          <Button size="small" onClick={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}>
-            搜索
-          </Button>
-        </div>
-        <div class="flex">
-          <Input
-            v-slots={{
-              addonBefore: () => <div class="mx-1.75">标签</div>,
+            clearable
+            onKeydown={(e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                searchByKeyword(searchByKeywordInput.value.trim(), 1)
+              }
             }}
+          />
+          <NButton size="small" onClick={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}>
+            搜索
+          </NButton>
+        </NInputGroup>
+        <NInputGroup>
+          <NInputGroupLabel size="small">&ensp;标签&ensp;</NInputGroupLabel>
+          <NInput
             size="small"
+            placeholder=""
             value={searchByTagInput.value}
             onUpdate:value={(value) => (searchByTagInput.value = value)}
-            allowClear
-            onPressEnter={() => searchByTag(searchByTagInput.value.trim(), 1)}
+            clearable
+            onKeydown={(e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                searchByTag(searchByTagInput.value.trim(), 1)
+              }
+            }}
           />
-          <Button size="small" onClick={() => searchByTag(searchByTagInput.value.trim(), 1)}>
+          <NButton size="small" onClick={() => searchByTag(searchByTagInput.value.trim(), 1)}>
             搜索
-          </Button>
-        </div>
-        <div class="flex">
-          <Input
-            addonBefore="漫画ID"
+          </NButton>
+        </NInputGroup>
+        <NInputGroup>
+          <NInputGroupLabel size="small">漫画ID</NInputGroupLabel>
+          <NInput
             placeholder="链接也行"
             size="small"
             value={searchByComicIdInput.value}
             onUpdate:value={(value) => (searchByComicIdInput.value = value)}
-            allowClear
-            onPressEnter={pickComic}
+            clearable
+            onKeydown={(e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                pickComic()
+              }
+            }}
           />
-          <Button size="small" onClick={async () => await pickComic()}>
+          <NButton size="small" onClick={() => pickComic()}>
             直达
-          </Button>
-        </div>
+          </NButton>
+        </NInputGroup>
+
         {store.searchResult && (
-          <div class="flex flex-col overflow-auto">
-            <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">
-              {store.searchResult.comics.map((comic) => (
-                <ComicCard
-                  key={comic.id}
-                  comicId={comic.id}
-                  comicTitle={comic.title}
-                  comicTitleHtml={comic.titleHtml}
-                  comicCover={comic.cover}
-                  comicAdditionalInfo={comic.additionalInfo}
-                  comicDownloaded={comic.isDownloaded}
-                />
-              ))}
+          <>
+            <div class="flex flex-col overflow-auto">
+              <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">
+                {store.searchResult.comics.map((comic) => (
+                  <ComicCard
+                    key={comic.id}
+                    comicId={comic.id}
+                    comicTitle={comic.title}
+                    comicTitleHtml={comic.titleHtml}
+                    comicCover={comic.cover}
+                    comicAdditionalInfo={comic.additionalInfo}
+                    comicDownloaded={comic.isDownloaded}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+            <NPagination
+              class="p-2 mt-auto"
+              page={currentPage.value}
+              pageCount={store.searchResult.totalPage}
+              onUpdate:page={async (page) => await onPageChange(page)}
+            />
+          </>
         )}
-        <Pagination
-          class="p-2 mt-auto"
-          current={currentPage.value}
-          pageSize={PAGE_SIZE}
-          total={totalForPagination.value}
-          showSizeChanger={false}
-          simple
-          onUpdate:current={async (pageNum) => await onPageChange(pageNum)}
-        />
       </div>
     )
 

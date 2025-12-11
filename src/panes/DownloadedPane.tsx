@@ -1,5 +1,5 @@
 import { computed, defineComponent, onMounted, ref, watch } from 'vue'
-import { Button, Input, message, Pagination } from 'ant-design-vue'
+import { NButton, NInput, NInputGroup, NInputGroupLabel, useMessage, NPagination, MessageReactive } from 'naive-ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useStore } from '../store.ts'
 import { Comic, commands, events } from '../bindings.ts'
@@ -7,21 +7,30 @@ import DownloadedComicCard from '../components/DownloadedComicCard.tsx'
 
 interface ProgressData {
   title: string
+  progressMessage: MessageReactive
 }
-
-const PAGE_SIZE = 20
 
 export default defineComponent({
   name: 'DownloadedPane',
   setup() {
     const store = useStore()
 
+    const message = useMessage()
+
     const comicCardContainer = ref<HTMLElement>()
 
+    const PAGE_SIZE = 20
     // 已下载的漫画
     const downloadedComics = ref<Comic[]>([])
     // 当前页码
     const currentPage = ref<number>(1)
+    // 总页数
+    const pageCount = computed<number>(() => {
+      if (downloadedComics.value.length === 0) {
+        return 1
+      }
+      return Math.ceil(downloadedComics.value.length / PAGE_SIZE)
+    })
     // 当前页的漫画
     const currentPageComics = computed(() => {
       const start = (currentPage.value - 1) * PAGE_SIZE
@@ -58,32 +67,38 @@ export default defineComponent({
       await events.exportCbzEvent.listen(async ({ payload: exportCbzEvent }) => {
         if (exportCbzEvent.event === 'Start') {
           const { uuid, title } = exportCbzEvent.data
-          progresses.set(uuid, { title })
-          message.loading({ key: uuid, content: `${title} 正在导出cbz`, duration: 0 })
+          progresses.set(uuid, { title, progressMessage: message.loading(`${title} 正在导出cbz`, { duration: 0 }) })
         } else if (exportCbzEvent.event === 'End') {
           const { uuid } = exportCbzEvent.data
           const progressData = progresses.get(uuid)
           if (progressData === undefined) {
             return
           }
-          message.success({ key: uuid, content: `${progressData.title} 导出cbz完成` })
-          progresses.delete(uuid)
+          progressData.progressMessage.type = 'success'
+          progressData.progressMessage.content = `${progressData.title} 导出cbz完成`
+          setTimeout(() => {
+            progressData.progressMessage.destroy()
+            progresses.delete(uuid)
+          }, 3000)
         }
       })
 
       await events.exportPdfEvent.listen(async ({ payload: exportPdfEvent }) => {
         if (exportPdfEvent.event === 'Start') {
           const { uuid, title } = exportPdfEvent.data
-          progresses.set(uuid, { title })
-          message.loading({ key: uuid, content: `${title} 正在导出pdf`, duration: 0 })
+          progresses.set(uuid, { title, progressMessage: message.loading(`${title} 正在导出pdf`, { duration: 0 }) })
         } else if (exportPdfEvent.event === 'End') {
           const { uuid } = exportPdfEvent.data
           const progressData = progresses.get(uuid)
           if (progressData === undefined) {
             return
           }
-          message.success({ key: uuid, content: `${progressData.title} 导出pdf完成` })
-          progresses.delete(uuid)
+          progressData.progressMessage.type = 'success'
+          progressData.progressMessage.content = `${progressData.title} 导出pdf完成`
+          setTimeout(() => {
+            progressData.progressMessage.destroy()
+            progresses.delete(uuid)
+          }, 3000)
         }
       })
     })
@@ -115,25 +130,28 @@ export default defineComponent({
     return () => (
       <div class="h-full flex flex-col">
         <div class="flex">
-          <Input
-            size="small"
-            addonBefore="导出目录"
-            readonly
-            value={store.config?.exportDir}
-            onUpdate:value={(value) => {
-              if (store.config) {
-                store.config.exportDir = value
-              }
-            }}
-            // 如果直接用 onClick={selectExportDir}，运行没问题，但是ts会报错
-            // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
-            {...{
-              onClick: selectExportDir,
-            }}
-          />
-          <Button size="small" onClick={showExportDirInFileManager}>
+          <NInputGroup>
+            <NInputGroupLabel size="small">导出目录</NInputGroupLabel>
+            <NInput
+              size="small"
+              readonly
+              value={store.config?.exportDir}
+              onUpdate:value={(value) => {
+                if (store.config) {
+                  store.config.exportDir = value
+                }
+              }}
+              // 如果直接用 onClick={selectExportDir}，运行没问题，但是ts会报错
+              // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
+              {...{
+                onClick: selectExportDir,
+              }}
+            />
+          </NInputGroup>
+
+          <NButton size="small" onClick={showExportDirInFileManager}>
             打开目录
-          </Button>
+          </NButton>
         </div>
         <div class="flex flex-col overflow-auto">
           <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">
@@ -142,14 +160,11 @@ export default defineComponent({
             ))}
           </div>
         </div>
-        <Pagination
+        <NPagination
           class="p-2 mt-auto"
-          current={currentPage.value}
-          pageSize={PAGE_SIZE}
-          total={downloadedComics.value.length}
-          showSizeChanger={false}
-          simple
-          onUpdate:current={(pageNum) => (currentPage.value = pageNum)}
+          page={currentPage.value}
+          pageCount={pageCount.value}
+          onUpdate:page={(page) => (currentPage.value = page)}
         />
       </div>
     )

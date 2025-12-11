@@ -1,19 +1,19 @@
-import { computed, defineComponent, ref, watch } from 'vue'
+import { computed, defineComponent, nextTick, ref, watch } from 'vue'
 import { useStore } from '../store.ts'
 import { SelectionArea, SelectionEvent } from '@viselect/vue'
 import { ProgressData } from '../types.ts'
 import { Comic, commands, DownloadTaskState } from '../bindings.ts'
 import {
-  CheckOutlined,
-  ClockCircleOutlined,
-  DeleteOutlined,
-  ExclamationCircleOutlined,
-  LoadingOutlined,
-  PauseOutlined,
-  RightOutlined,
-} from '@ant-design/icons-vue'
-import { Dropdown, Menu, MenuProps, Progress, ProgressProps } from 'ant-design-vue'
-import styles from '../styles/UncompletedProgresses.module.css'
+  PhPause,
+  PhChecks,
+  PhTrash,
+  PhCaretRight,
+  PhCloudArrowDown,
+  PhClock,
+  PhWarningCircle,
+} from '@phosphor-icons/vue'
+import { NDropdown, NProgress, ProgressProps, DropdownOption, NIcon } from 'naive-ui'
+import styles from './UncompletedProgresses.module.css'
 
 export default defineComponent({
   name: 'UncompletedProgress',
@@ -74,96 +74,142 @@ export default defineComponent({
       selectedIds.value.add(comicId)
     }
 
-    const dropdownOptions: MenuProps['items'] = [
+    const dropdownX = ref<number>(0)
+    const dropdownY = ref<number>(0)
+    const dropdownShowing = ref<boolean>(false)
+    const dropdownOptions: DropdownOption[] = [
       {
         label: '全选',
         key: 'check all',
-        icon: <CheckOutlined />,
-        onClick: () => {
-          if (selectionAreaRef.value === undefined) {
-            return
-          }
-          const selection = selectionAreaRef.value.selection
-          if (selection === undefined) {
-            return
-          }
-          selection.select(selectableRefs.value)
+        icon: () => (
+          <NIcon size="20">
+            <PhChecks />
+          </NIcon>
+        ),
+        props: {
+          onClick: () => {
+            if (selectionAreaRef.value === undefined) {
+              return
+            }
+            const selection = selectionAreaRef.value.selection
+            if (selection === undefined) {
+              return
+            }
+            selection.select(selectableRefs.value)
+            dropdownShowing.value = false
+          },
         },
       },
       {
         label: '继续',
         key: 'resume',
-        icon: <RightOutlined />,
-        onClick: () => {
-          selectedIds.value.forEach(async (comicId) => {
-            const result = await commands.resumeDownloadTask(comicId)
-            if (result.status === 'error') {
-              console.error(result.error)
-            }
-          })
+        icon: () => (
+          <NIcon size="20">
+            <PhCaretRight />
+          </NIcon>
+        ),
+        props: {
+          onClick: () => {
+            selectedIds.value.forEach(async (comicId) => {
+              const result = await commands.resumeDownloadTask(comicId)
+              if (result.status === 'error') {
+                console.error(result.error)
+              }
+            })
+            dropdownShowing.value = false
+          },
         },
       },
       {
         label: '暂停',
         key: 'pause',
-        icon: <PauseOutlined />,
-        onClick: () => {
-          selectedIds.value.forEach(async (comicId) => {
-            const result = await commands.pauseDownloadTask(comicId)
-            if (result.status === 'error') {
-              console.error(result.error)
-            }
-          })
+        icon: () => (
+          <NIcon size="20">
+            <PhPause />
+          </NIcon>
+        ),
+        props: {
+          onClick: () => {
+            selectedIds.value.forEach(async (comicId) => {
+              const result = await commands.pauseDownloadTask(comicId)
+              if (result.status === 'error') {
+                console.error(result.error)
+              }
+            })
+            dropdownShowing.value = false
+          },
         },
       },
       {
         label: '取消',
         key: 'cancel',
-        icon: <DeleteOutlined />,
-        onClick: () => {
-          selectedIds.value.forEach(async (comicId) => {
-            const result = await commands.cancelDownloadTask(comicId)
-            if (result.status === 'error') {
-              console.error(result.error)
-            }
-          })
+        icon: () => (
+          <NIcon size="20">
+            <PhTrash />
+          </NIcon>
+        ),
+        props: {
+          onClick: () => {
+            selectedIds.value.forEach(async (comicId) => {
+              const result = await commands.cancelDownloadTask(comicId)
+              if (result.status === 'error') {
+                console.error(result.error)
+              }
+            })
+            dropdownShowing.value = false
+          },
         },
       },
     ]
+
+    async function showDropdown(e: MouseEvent) {
+      dropdownShowing.value = false
+      await nextTick()
+      dropdownShowing.value = true
+      dropdownX.value = e.clientX
+      dropdownY.value = e.clientY
+    }
 
     return () => (
       <SelectionArea
         ref={selectionAreaRef}
         class={`${styles.selectionContainer} select-none overflow-auto h-full flex flex-col`}
         options={{ selectables: '.selectable', features: { deselectOnBlur: true } }}
+        // 如果直接用 onContextmenu={showDropdown}，运行没问题，但是ts会报错
+        // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
+        {...{
+          onContextmenu: showDropdown,
+        }}
         onMove={updateSelectedIds}
         onStart={unselectAll}>
         <div class="h-6 flex-shrink-0 items-center ml-auto">左键拖动进行框选，右键打开菜单，双击暂停/继续</div>
-        <Dropdown
-          class="select-none"
-          trigger={['contextmenu']}
-          v-slots={{
-            overlay: () => <Menu items={dropdownOptions}></Menu>,
-          }}>
-          <div class="h-full select-none">
-            {uncompletedProgresses.value.map(([comicId, { state, comic, percentage, indicator }]) => (
-              <div
-                key={comicId}
-                ref={(el) => {
-                  selectableRefs.value[comicId] = el as HTMLDivElement
-                }}
-                data-key={comicId}
-                class={[
-                  'selectable p-3 mb-2 rounded-lg',
-                  selectedIds.value.has(comicId) ? 'selected shadow-md' : 'hover:bg-gray-1',
-                ]}
-                onDblclick={() => handleProgressDoubleClick(state, comicId)}
-                onContextmenu={() => handleProgressContextMenu(comicId)}>
-                <DownloadProgress percentage={percentage} state={state} comic={comic} indicator={indicator} />
-              </div>
-            ))}
-          </div>
-        </Dropdown>
+        <div class="h-full select-none">
+          {uncompletedProgresses.value.map(([comicId, { state, comic, percentage, indicator }]) => (
+            <div
+              key={comicId}
+              ref={(el) => {
+                selectableRefs.value[comicId] = el as HTMLDivElement
+              }}
+              data-key={comicId}
+              class={[
+                'selectable p-3 mb-2 rounded-lg',
+                selectedIds.value.has(comicId) ? 'selected shadow-md' : 'hover:bg-gray-1',
+              ]}
+              onDblclick={() => handleProgressDoubleClick(state, comicId)}
+              onContextmenu={() => handleProgressContextMenu(comicId)}>
+              <DownloadProgress percentage={percentage} state={state} comic={comic} indicator={indicator} />
+            </div>
+          ))}
+        </div>
+        <NDropdown
+          placement="bottom-start"
+          trigger="manual"
+          x={dropdownX.value}
+          y={dropdownY.value}
+          options={dropdownOptions}
+          show={dropdownShowing.value}
+          on-clickoutside={() => (dropdownShowing.value = false)}
+        />
       </SelectionArea>
     )
   },
@@ -181,7 +227,6 @@ function DownloadProgress({
   indicator: string
 }) {
   const started = !isNaN(percentage)
-  const color = stateToColorHex(state)
   const colorClass = stateToColorClass(state)
 
   return (
@@ -190,22 +235,21 @@ function DownloadProgress({
         {comic.title}
       </div>
       <div class="flex">
-        {state === 'Downloading' && <LoadingOutlined class={`text-lg ${colorClass}`} spin />}
-        {state === 'Pending' && <ClockCircleOutlined class={`text-lg ${colorClass}`} />}
-        {state === 'Paused' && <PauseOutlined class={`text-lg ${colorClass}`} />}
-        {state === 'Failed' && <ExclamationCircleOutlined class={`text-lg ${colorClass}`} />}
+        <NIcon class={[colorClass, 'mr-2']} size={20}>
+          {state === 'Downloading' && <PhCloudArrowDown />}
+          {state === 'Pending' && <PhClock />}
+          {state === 'Paused' && <PhPause />}
+          {state === 'Failed' && <PhWarningCircle />}
+        </NIcon>
         {!started && <div class="ml-auto">{indicator}</div>}
         {started && (
-          <>
-            <Progress
-              class="ml-2 mt-1"
-              strokeColor={color}
-              status={stateToStatus(state)}
-              percent={percentage}
-              showInfo={false}
-            />
-            <div class={`flex items-center whitespace-nowrap ${colorClass}`}>{indicator}</div>
-          </>
+          <NProgress
+            class={colorClass}
+            status={stateToStatus(state)}
+            percentage={percentage}
+            processing={state === 'Downloading'}>
+            {indicator}
+          </NProgress>
         )}
       </div>
     </div>
@@ -220,14 +264,14 @@ function extractIds(elements: Element[]): number[] {
 }
 
 function stateToStatus(state: DownloadTaskState): ProgressProps['status'] {
-  if (state === 'Downloading') {
-    return 'active'
-  } else if (state === 'Completed') {
+  if (state === 'Completed') {
     return 'success'
+  } else if (state === 'Paused') {
+    return 'warning'
   } else if (state === 'Failed') {
-    return 'exception'
+    return 'error'
   } else {
-    return 'normal'
+    return 'default'
   }
 }
 
@@ -244,24 +288,6 @@ function stateToColorClass(state: DownloadTaskState) {
     return 'text-green-500'
   } else if (state === 'Cancelled') {
     return 'text-stone-500'
-  }
-
-  return ''
-}
-
-function stateToColorHex(state: DownloadTaskState) {
-  if (state === 'Downloading') {
-    return '#2B7FFF'
-  } else if (state === 'Pending') {
-    return '#6A7282'
-  } else if (state === 'Paused') {
-    return '#F0B100'
-  } else if (state === 'Failed') {
-    return '#FB2C36'
-  } else if (state === 'Completed') {
-    return '#00C950'
-  } else if (state === 'Cancelled') {
-    return '#79716B'
   }
 
   return ''

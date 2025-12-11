@@ -1,13 +1,12 @@
 import { computed, defineComponent, ref, watch } from 'vue'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
-import { Empty, Pagination, Select } from 'ant-design-vue'
+import { NEmpty, NPagination, NSelect } from 'naive-ui'
 import ComicCard from '../components/ComicCard.tsx'
 
 export default defineComponent({
   name: 'FavoritePane',
   setup() {
-    const PAGE_SIZE = 12
     const store = useStore()
 
     const shelfIdSelected = ref<number>(0)
@@ -20,13 +19,6 @@ export default defineComponent({
         value: shelf.id,
       })),
     )
-
-    const totalForPagination = computed(() => {
-      if (store.getFavoriteResult === undefined) {
-        return 1
-      }
-      return store.getFavoriteResult.totalPage * PAGE_SIZE
-    })
 
     watch(
       () => store.userProfile,
@@ -66,19 +58,20 @@ export default defineComponent({
 
     return () => {
       if (store.userProfile === undefined) {
-        return <Empty description="请先登录" />
+        return <NEmpty description="请先登录" />
       }
 
       if (store.getFavoriteResult === undefined) {
-        return <Empty description="加载中..." />
+        return <NEmpty description="加载中..." />
       }
 
       return (
         <div class="h-full flex flex-col">
           <div class="flex items-center">
             <span class="mx-2">书架</span>
-            <Select
+            <NSelect
               class="w-40%"
+              showCheckmark={false}
               value={shelfIdSelected.value}
               size="small"
               options={shelfOptions.value}
@@ -102,14 +95,11 @@ export default defineComponent({
               ))}
             </div>
           </div>
-          <Pagination
+          <NPagination
             class="p-2 mt-auto"
-            current={currentPage.value}
-            pageSize={PAGE_SIZE}
-            total={totalForPagination.value}
-            showSizeChanger={false}
-            simple
-            onUpdate:current={async (pageNum) => await onPageChange(pageNum)}
+            page={currentPage.value}
+            pageCount={store.getFavoriteResult.totalPage}
+            onUpdate:page={async (page) => await onPageChange(page)}
           />
         </div>
       )

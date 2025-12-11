@@ -2,9 +2,9 @@ import { computed, defineComponent, onMounted, PropType } from 'vue'
 import { useStore } from '../store.ts'
 import { commands, Shelf } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
-import { Button, Card } from 'ant-design-vue'
+import { NButton, NCard } from 'naive-ui'
 import DownloadButton from './DownloadButton.tsx'
-import styles from '../styles/ComicCard.module.css'
+import styles from './ComicCard.module.css'
 
 export default defineComponent({
   name: 'ComicCard',
@@ -85,12 +85,13 @@ export default defineComponent({
     }
 
     return () => (
-      <Card hoverable={true} class={`${styles.comicCard} cursor-auto rounded-none`} bodyStyle={{ padding: '0.25rem' }}>
+      <NCard hoverable class={`${styles.comicCard}`} content-style="padding: 0.25rem;">
         <div class="flex h-full">
           <img
             class="w-24 object-contain mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
             src={cover.value}
             alt=""
+            referrerpolicy="no-referrer"
             onClick={pickComic}
           />
           <div class="flex flex-col w-full">
@@ -107,27 +108,27 @@ export default defineComponent({
               <div>
                 <span>所属书架：</span>
                 {props.shelf.name !== '' && (
-                  <Button
-                    size="small"
+                  <NButton
+                    size="tiny"
                     onClick={async () => {
                       if (props.shelf !== undefined && props.getFavorite !== undefined) {
                         await props.getFavorite(props.shelf.id, 1)
                       }
                     }}>
                     {props.shelf.name}
-                  </Button>
+                  </NButton>
                 )}
               </div>
             )}
             <div class="flex mt-auto">
               {props.comicDownloaded && (
-                <Button size="small" onClick={showComicDirInFileManager}>
+                <NButton size="tiny" onClick={showComicDirInFileManager}>
                   打开目录
-                </Button>
+                </NButton>
               )}
               <DownloadButton
                 class="ml-auto"
-                size="small"
+                size="tiny"
                 type="primary"
                 comicId={props.comicId}
                 comicDownloaded={props.comicDownloaded}
@@ -135,7 +136,7 @@ export default defineComponent({
             </div>
           </div>
         </div>
-      </Card>
+      </NCard>
     )
   },
 })

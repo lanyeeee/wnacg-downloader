@@ -1,6 +1,18 @@
 import { defineComponent } from 'vue'
 import { useStore } from '../store.ts'
-import { Button, InputNumber, Modal, Radio, RadioGroup, Tooltip, message, Checkbox } from 'ant-design-vue'
+import {
+  NButton,
+  NCheckbox,
+  NInputNumber,
+  NModal,
+  NDialog,
+  NRadio,
+  NRadioGroup,
+  NTooltip,
+  useMessage,
+  NInputGroup,
+  NInputGroupLabel,
+} from 'naive-ui'
 import { commands } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
 import { appDataDir } from '@tauri-apps/api/path'
@@ -17,6 +29,7 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const store = useStore()
+    const message = useMessage()
 
     async function showConfigPathInFileManager() {
       const configPath = await path.join(await appDataDir(), 'config.json')
@@ -27,152 +40,168 @@ export default defineComponent({
     }
 
     return () => (
-      <Modal title="更多设置" open={props.showing} onCancel={() => emit('update:showing', false)} footer={false}>
-        <div class="flex flex-col gap-row-2">
-          <div>
-            图片下载格式：
-            <RadioGroup
-              name="downloadFormat"
+      <NModal show={props.showing} onUpdate:show={(value) => emit('update:showing', value)}>
+        <NDialog class="w-140!" showIcon={false} title="更多设置" onClose={() => emit('update:showing', false)}>
+          <div class="flex flex-col">
+            <span class="font-bold">下载格式</span>
+            <NRadioGroup
               value={store?.config?.downloadFormat}
               onUpdate:value={(value) => {
                 if (store.config) {
                   store.config.downloadFormat = value
                 }
               }}>
-              <Tooltip
-                placement="top"
-                v-slots={{
-                  title: () => (
+              <NTooltip placement="top" trigger="hover">
+                {{
+                  trigger: () => <NRadio value="Jpeg">jpg</NRadio>,
+                  default: () => (
                     <>
                       <div>当原图不为jpg时</div>
                       <div>会自动转换为jpg</div>
                     </>
                   ),
-                }}>
-                <Radio value="Jpeg">jpg</Radio>
-              </Tooltip>
-              <Tooltip
-                placement="top"
-                v-slots={{
-                  title: () => (
+                }}
+              </NTooltip>
+              <NTooltip placement="top" trigger="hover">
+                {{
+                  trigger: () => <NRadio value="Png">png</NRadio>,
+                  default: () => (
                     <>
                       <div>当原图不为png时</div>
                       <div>会自动转换为png</div>
                     </>
                   ),
-                }}>
-                <Radio value="Png">png</Radio>
-              </Tooltip>
-              <Tooltip
-                placement="top"
-                v-slots={{
-                  title: () => (
+                }}
+              </NTooltip>
+              <NTooltip placement="top" trigger="hover">
+                {{
+                  trigger: () => <NRadio value="Webp">webp</NRadio>,
+                  default: () => (
                     <>
                       <div>当原图不为webp时</div>
                       <div>会自动转换为webp</div>
                     </>
                   ),
-                }}>
-                <Radio value="Webp">webp</Radio>
-              </Tooltip>
-              <Tooltip
-                placement="top"
-                v-slots={{
-                  title: () => (
+                }}
+              </NTooltip>
+              <NTooltip placement="top" trigger="hover">
+                {{
+                  trigger: () => <NRadio value="Original">原始格式</NRadio>,
+                  default: () => (
                     <>
                       <div>保持原图格式，不做任何转换</div>
                       <div class="text-red">不支持断点续传</div>
                     </>
                   ),
-                }}>
-                <Radio value="Original">原始格式</Radio>
-              </Tooltip>
-            </RadioGroup>
+                }}
+              </NTooltip>
+            </NRadioGroup>
+
+            <span class="font-bold mt-2">下载速度</span>
+            <div class="flex flex-col gap-2">
+              <div class="flex gap-1">
+                <NInputGroup class="w-35%">
+                  <NInputGroupLabel size="small">漫画并发数</NInputGroupLabel>
+                  <NInputNumber
+                    class="w-full"
+                    size="small"
+                    value={store.config?.comicConcurrency}
+                    onUpdate:value={(value) => {
+                      if (store.config && value !== null) {
+                        message.warning('对漫画并发数的修改需要重启才能生效')
+                        store.config.comicConcurrency = value
+                      }
+                    }}
+                    min={1}
+                    parse={(x: string) => Number(x)}
+                  />
+                </NInputGroup>
+                <NInputGroup class="w-65%">
+                  <NInputGroupLabel size="small">每本漫画下载完成后休息</NInputGroupLabel>
+                  <NInputNumber
+                    class="w-full"
+                    size="small"
+                    value={store.config?.comicDownloadIntervalSec}
+                    onUpdate:value={(value) => {
+                      if (store.config && value !== null) {
+                        store.config.comicDownloadIntervalSec = value
+                      }
+                    }}
+                    min={0}
+                    parse={(x: string) => Number(x)}
+                  />
+                  <NInputGroupLabel size="small">秒</NInputGroupLabel>
+                </NInputGroup>
+              </div>
+            </div>
+
+            <div class="flex gap-1">
+              <NInputGroup class="w-35%">
+                <NInputGroupLabel size="small">图片并发数</NInputGroupLabel>
+                <NInputNumber
+                  class="w-full"
+                  size="small"
+                  value={store.config?.imgConcurrency}
+                  onUpdate:value={(value) => {
+                    if (store.config && value !== null) {
+                      message.warning('对图片并发数的修改需要重启才能生效')
+                      store.config.imgConcurrency = value
+                    }
+                  }}
+                  min={1}
+                  parse={(x: string) => Number(x)}
+                />
+              </NInputGroup>
+              <NInputGroup class="w-65%">
+                <NInputGroupLabel size="small">每张图片下载完成后休息</NInputGroupLabel>
+                <NInputNumber
+                  class="w-full"
+                  size="small"
+                  value={store.config?.imgDownloadIntervalSec}
+                  onUpdate:value={(value) => {
+                    if (store.config && value !== null) {
+                      store.config.imgDownloadIntervalSec = value
+                    }
+                  }}
+                  min={0}
+                  parse={(x: string) => Number(x)}
+                />
+                <NInputGroupLabel size="small">秒</NInputGroupLabel>
+              </NInputGroup>
+            </div>
+
+            <span class="font-bold mt-2">其他</span>
+            <NTooltip placement="top">
+              {{
+                trigger: () => (
+                  <NCheckbox
+                    class="w-fit"
+                    checked={store.config?.useOriginalFilename}
+                    onUpdate:checked={(value) => {
+                      if (store.config) {
+                        store.config.useOriginalFilename = value
+                      }
+                    }}>
+                    使用图片原文件名
+                  </NCheckbox>
+                ),
+                default: () => (
+                  <>
+                    <div class="text-red">可能导致 导出pdf 时图片顺序混乱</div>
+                    <div>因为pdf的图片是根据文件名排序的</div>
+                  </>
+                ),
+              }}
+            </NTooltip>
           </div>
 
-          <Tooltip
-            placement="top"
-            v-slots={{
-              title: () => (
-                <>
-                  <div class="text-red">可能导致 导出pdf 时图片顺序混乱</div>
-                  <div>因为pdf的图片是根据文件名排序的</div>
-                </>
-              ),
-            }}>
-            <Checkbox
-              class="w-fit"
-              value={store.config?.useOriginalFilename}
-              onUpdate:checked={(value) => {
-                if (store.config) {
-                  store.config.useOriginalFilename = value
-                }
-              }}>
-              使用图片原文件名
-            </Checkbox>
-          </Tooltip>
-
-          <div class="flex gap-1">
-            <InputNumber
-              size="small"
-              min={1}
-              addonBefore="漫画并发数"
-              value={store.config?.comicConcurrency}
-              onUpdate:value={async (value) => {
-                if (store.config) {
-                  message.warning('对漫画并发数的修改需要重启才能生效')
-                  store.config.comicConcurrency = value as number
-                }
-              }}
-            />
-            <InputNumber
-              size="small"
-              min={0}
-              addonBefore="每本漫画下载完成后休息"
-              addonAfter="秒"
-              value={store.config?.comicDownloadIntervalSec}
-              onUpdate:value={async (value) => {
-                if (store.config) {
-                  store.config.comicDownloadIntervalSec = value as number
-                }
-              }}
-            />
+          <div class="flex justify-end mt-4">
+            <NButton size="small" onClick={showConfigPathInFileManager}>
+              打开配置目录
+            </NButton>
           </div>
-
-          <div class="flex gap-1">
-            <InputNumber
-              size="small"
-              min={1}
-              addonBefore="图片并发数"
-              value={store.config?.imgConcurrency}
-              onUpdate:value={async (value) => {
-                if (store.config) {
-                  message.warning('对图片并发数的修改需要重启才能生效')
-                  store.config.imgConcurrency = value as number
-                }
-              }}
-            />
-            <InputNumber
-              size="small"
-              min={0}
-              addonBefore="每张图片下载完成后休息"
-              addonAfter="秒"
-              value={store.config?.imgDownloadIntervalSec}
-              onUpdate:value={async (value) => {
-                if (store.config) {
-                  store.config.imgDownloadIntervalSec = value as number
-                }
-              }}
-            />
-          </div>
-        </div>
-
-        <div class="flex justify-end mt-4">
-          <Button size="small" onClick={showConfigPathInFileManager}>
-            打开配置目录
-          </Button>
-        </div>
-      </Modal>
+        </NDialog>
+      </NModal>
     )
   },
 })

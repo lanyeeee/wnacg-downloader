@@ -2,10 +2,9 @@ import { defineComponent, onMounted, ref } from 'vue'
 import { useStore } from '../store.ts'
 import { commands, events } from '../bindings.ts'
 import { open } from '@tauri-apps/plugin-dialog'
-import { Button, Input, Tabs } from 'ant-design-vue'
+import { NButton, NInput, NInputGroup, NInputGroupLabel, NTabPane, NTabs } from 'naive-ui'
 import UncompletedProgresses from '../components/UncompletedProgresses.tsx'
 import CompletedProgress from '../components/CompletedProgress.tsx'
-import styles from '../styles/DownloadingPane.module.css'
 import SettingsDialog from '../dialogs/SettingsDialog.tsx'
 
 export default defineComponent({
@@ -16,6 +15,9 @@ export default defineComponent({
     const settingsShowing = ref<boolean>(false)
 
     const downloadSpeed = ref<string>('')
+
+    type TabName = 'uncompleted' | 'completed'
+    const tabName = ref<TabName>('uncompleted')
 
     onMounted(async () => {
       await events.downloadSpeedEvent.listen(async ({ payload: { speed } }) => {
@@ -101,42 +103,48 @@ export default defineComponent({
 
     return () => (
       <div class="flex flex-col h-full">
-        <div class="flex h-9.5 items-center">
+        <div class="flex h-8.5 items-center">
           <span class="text-lg font-bold">下载列表</span>
           <span class="ml-auto">下载速度: {downloadSpeed.value}</span>
         </div>
         <div class="flex">
-          <Input
-            size="small"
-            addonBefore="下载目录"
-            readonly
-            value={store.config?.downloadDir}
-            onUpdate:value={(value) => {
-              if (store.config) {
-                store.config.downloadDir = value
-              }
-            }}
-            // 如果直接用 onClick={selectDownloadDir}，运行没问题，但是ts会报错
-            // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
-            {...{
-              onClick: selectDownloadDir,
-            }}
-          />
-          <Button size="small" onClick={showDownloadDirInFileManager}>
+          <NInputGroup>
+            <NInputGroupLabel size="small">下载目录</NInputGroupLabel>
+            <NInput
+              size="small"
+              readonly
+              value={store.config?.downloadDir}
+              onUpdate:value={(value) => {
+                if (store.config) {
+                  store.config.downloadDir = value
+                }
+              }}
+              // 如果直接用 onClick={selectDownloadDir}，运行没问题，但是ts会报错
+              // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
+              {...{
+                onClick: selectDownloadDir,
+              }}
+            />
+          </NInputGroup>
+          <NButton size="small" onClick={showDownloadDirInFileManager}>
             打开目录
-          </Button>{' '}
-          <Button size="small" onClick={() => (settingsShowing.value = true)}>
+          </NButton>
+          <NButton size="small" onClick={() => (settingsShowing.value = true)}>
             更多设置
-          </Button>
+          </NButton>
         </div>
-        <Tabs size="small" class={`${styles.tabs} flex-1 overflow-hidden`}>
-          <Tabs.TabPane key="uncompleted" tab="未完成" class="h-full overflow-auto">
+        <NTabs
+          size="small"
+          value={tabName.value}
+          onUpdate:value={(value) => (tabName.value = value as TabName)}
+          class="flex-1 overflow-hidden">
+          <NTabPane class="h-full p-0! overflow-auto" name="uncompleted" tab="未完成">
             <UncompletedProgresses />
-          </Tabs.TabPane>
-          <Tabs.TabPane key="completed" tab="已完成" class="h-full overflow-auto">
+          </NTabPane>
+          <NTabPane class="h-full p-0! overflow-auto" name="completed" tab="已完成">
             <CompletedProgress />
-          </Tabs.TabPane>
-        </Tabs>
+          </NTabPane>
+        </NTabs>
         <SettingsDialog
           showing={settingsShowing.value}
           onUpdate:showing={(showing) => (settingsShowing.value = showing)}

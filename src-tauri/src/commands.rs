@@ -1,17 +1,14 @@
 use anyhow::Context;
-use parking_lot::RwLock;
-use tauri::{AppHandle, State};
+use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::{
     config::Config,
-    download_manager::DownloadManager,
     errors::{CommandError, CommandResult},
     export,
-    extensions::AnyhowErrorToStringChain,
+    extensions::{AnyhowErrorToStringChain, AppHandleExt},
     logger,
     types::{Comic, GetFavoriteResult, SearchResult, UserProfile},
-    wnacg_client::WnacgClient,
 };
 
 #[tauri::command]
@@ -23,7 +20,8 @@ pub fn greet(name: &str) -> String {
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
-pub fn get_config(config: tauri::State<RwLock<Config>>) -> Config {
+pub fn get_config(app: AppHandle) -> Config {
+    let config = app.get_config();
     let config = config.read().clone();
     tracing::debug!("获取配置成功");
     config
@@ -32,11 +30,9 @@ pub fn get_config(config: tauri::State<RwLock<Config>>) -> Config {
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
-pub fn save_config(
-    app: AppHandle,
-    config_state: State<RwLock<Config>>,
-    config: Config,
-) -> CommandResult<()> {
+pub fn save_config(app: AppHandle, config: Config) -> CommandResult<()> {
+    let config_state = app.get_config();
+
     let enable_file_logger = config.enable_file_logger;
     let enable_file_logger_changed = config_state
         .read()
@@ -68,11 +64,9 @@ pub fn save_config(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn login(
-    wnacg_client: State<'_, WnacgClient>,
-    username: String,
-    password: String,
-) -> CommandResult<String> {
+pub async fn login(app: AppHandle, username: String, password: String) -> CommandResult<String> {
+    let wnacg_client = app.get_wnacg_client();
+
     let cookie = wnacg_client
         .login(&username, &password)
         .await
@@ -83,7 +77,9 @@ pub async fn login(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_user_profile(wnacg_client: State<'_, WnacgClient>) -> CommandResult<UserProfile> {
+pub async fn get_user_profile(app: AppHandle) -> CommandResult<UserProfile> {
+    let wnacg_client = app.get_wnacg_client();
+
     let user_profile = wnacg_client
         .get_user_profile()
         .await
@@ -95,10 +91,12 @@ pub async fn get_user_profile(wnacg_client: State<'_, WnacgClient>) -> CommandRe
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn search_by_keyword(
-    wnacg_client: State<'_, WnacgClient>,
+    app: AppHandle,
     keyword: String,
     page_num: i64,
 ) -> CommandResult<SearchResult> {
+    let wnacg_client = app.get_wnacg_client();
+
     let search_result = wnacg_client
         .search_by_keyword(&keyword, page_num)
         .await
@@ -110,10 +108,12 @@ pub async fn search_by_keyword(
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn search_by_tag(
-    wnacg_client: State<'_, WnacgClient>,
+    app: AppHandle,
     tag_name: String,
     page_num: i64,
 ) -> CommandResult<SearchResult> {
+    let wnacg_client = app.get_wnacg_client();
+
     let search_result = wnacg_client
         .search_by_tag(&tag_name, page_num)
         .await
@@ -124,7 +124,9 @@ pub async fn search_by_tag(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_comic(wnacg_client: State<'_, WnacgClient>, id: i64) -> CommandResult<Comic> {
+pub async fn get_comic(app: AppHandle, id: i64) -> CommandResult<Comic> {
+    let wnacg_client = app.get_wnacg_client();
+
     let comic = wnacg_client
         .get_comic(id)
         .await
@@ -136,10 +138,12 @@ pub async fn get_comic(wnacg_client: State<'_, WnacgClient>, id: i64) -> Command
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn get_favorite(
-    wnacg_client: State<'_, WnacgClient>,
+    app: AppHandle,
     shelf_id: i64,
     page_num: i64,
 ) -> CommandResult<GetFavoriteResult> {
+    let wnacg_client = app.get_wnacg_client();
+
     let get_favorite_result = wnacg_client
         .get_favorite(shelf_id, page_num)
         .await
@@ -151,7 +155,9 @@ pub async fn get_favorite(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn create_download_task(download_manager: State<DownloadManager>, comic: Comic) {
+pub fn create_download_task(app: AppHandle, comic: Comic) {
+    let download_manager = app.get_download_manager();
+
     download_manager.create_download_task(comic);
     tracing::debug!("下载任务创建成功");
 }
@@ -159,10 +165,9 @@ pub fn create_download_task(download_manager: State<DownloadManager>, comic: Com
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn pause_download_task(
-    download_manager: State<DownloadManager>,
-    comic_id: i64,
-) -> CommandResult<()> {
+pub fn pause_download_task(app: AppHandle, comic_id: i64) -> CommandResult<()> {
+    let download_manager = app.get_download_manager();
+
     download_manager
         .pause_download_task(comic_id)
         .map_err(|err| CommandError::from(&format!("暂停漫画ID为`{comic_id}`的下载任务"), err))?;
@@ -173,10 +178,9 @@ pub fn pause_download_task(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn resume_download_task(
-    download_manager: State<DownloadManager>,
-    comic_id: i64,
-) -> CommandResult<()> {
+pub fn resume_download_task(app: AppHandle, comic_id: i64) -> CommandResult<()> {
+    let download_manager = app.get_download_manager();
+
     download_manager
         .resume_download_task(comic_id)
         .map_err(|err| CommandError::from(&format!("恢复漫画ID为`{comic_id}`的下载任务"), err))?;
@@ -187,10 +191,9 @@ pub fn resume_download_task(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn cancel_download_task(
-    download_manager: State<DownloadManager>,
-    comic_id: i64,
-) -> CommandResult<()> {
+pub fn cancel_download_task(app: AppHandle, comic_id: i64) -> CommandResult<()> {
+    let download_manager = app.get_download_manager();
+
     download_manager
         .cancel_download_task(comic_id)
         .map_err(|err| CommandError::from(&format!("取消漫画ID为`{comic_id}`的下载任务"), err))?;
@@ -201,10 +204,9 @@ pub fn cancel_download_task(
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
-pub fn get_downloaded_comics(
-    app: AppHandle,
-    config: State<RwLock<Config>>,
-) -> CommandResult<Vec<Comic>> {
+pub fn get_downloaded_comics(app: AppHandle) -> CommandResult<Vec<Comic>> {
+    let config = app.get_config();
+
     let download_dir = config.read().download_dir.clone();
     // 遍历下载目录，获取所有元数据文件的路径和修改时间
     let mut metadata_path_with_modify_time = std::fs::read_dir(&download_dir)
@@ -302,10 +304,9 @@ pub fn show_path_in_file_manager(app: AppHandle, path: &str) -> CommandResult<()
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_cover_data(
-    wnacg_client: State<'_, WnacgClient>,
-    cover_url: String,
-) -> CommandResult<Vec<u8>> {
+pub async fn get_cover_data(app: AppHandle, cover_url: String) -> CommandResult<Vec<u8>> {
+    let wnacg_client = app.get_wnacg_client();
+
     let cover_data = wnacg_client
         .get_cover_data(&cover_url)
         .await

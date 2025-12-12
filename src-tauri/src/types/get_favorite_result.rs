@@ -1,11 +1,13 @@
 use anyhow::Context;
-use parking_lot::RwLock;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
-use crate::{config::Config, extensions::ToAnyhow, utils::filename_filter};
+use crate::{
+    extensions::{AppHandleExt, ToAnyhow},
+    utils::filename_filter,
+};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -175,12 +177,7 @@ impl ComicInFavorite {
 
         let shelf = Self::get_shelf(div)?;
 
-        let is_downloaded = app
-            .state::<RwLock<Config>>()
-            .read()
-            .download_dir
-            .join(&title)
-            .exists();
+        let is_downloaded = app.get_config().read().download_dir.join(&title).exists();
 
         Ok(ComicInFavorite {
             id,

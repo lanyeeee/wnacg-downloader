@@ -14,7 +14,7 @@ use image::ImageFormat;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_specta::Event;
 use tokio::{
     sync::{watch, Semaphore, SemaphorePermit},
@@ -23,11 +23,9 @@ use tokio::{
 };
 
 use crate::{
-    config::Config,
     events::{DownloadSleepingEvent, DownloadSpeedEvent, DownloadTaskEvent},
-    extensions::AnyhowErrorToStringChain,
+    extensions::{AnyhowErrorToStringChain, AppHandleExt},
     types::Comic,
-    wnacg_client::WnacgClient,
 };
 
 /// 用于管理下载任务
@@ -60,7 +58,7 @@ pub enum DownloadTaskState {
 impl DownloadManager {
     pub fn new(app: &AppHandle) -> Self {
         let (comic_concurrency, img_concurrency) = {
-            let config = app.state::<RwLock<Config>>();
+            let config = app.get_config();
             let config = config.read();
             (config.comic_concurrency, config.img_concurrency)
         };
@@ -163,7 +161,7 @@ struct DownloadTask {
 
 impl DownloadTask {
     pub fn new(app: AppHandle, comic: Comic) -> Self {
-        let download_manager = app.state::<DownloadManager>().inner().clone();
+        let download_manager = app.get_download_manager().inner().clone();
         let (state_sender, _) = watch::channel(DownloadTaskState::Pending);
         Self {
             app,
@@ -291,7 +289,7 @@ impl DownloadTask {
 
         let temp_download_dir = self
             .app
-            .state::<RwLock<Config>>()
+            .get_config()
             .read()
             .download_dir
             .join(format!(".下载中-{comic_title}")); // 以 `.下载中-` 开头，表示是临时目录
@@ -333,7 +331,7 @@ impl DownloadTask {
             }
         };
 
-        let download_format = self.app.state::<RwLock<Config>>().read().download_format;
+        let download_format = self.app.get_config().read().download_format;
         let extension = download_format.extension();
         for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
             // path有扩展名，且能转换为utf8，并与`config.download_format`一致，才保留
@@ -440,11 +438,7 @@ impl DownloadTask {
 
     async fn sleep_between_comics(&self) {
         let comic_id = self.comic.id;
-        let mut remaining_sec = self
-            .app
-            .state::<RwLock<Config>>()
-            .read()
-            .comic_download_interval_sec;
+        let mut remaining_sec = self.app.get_config().read().comic_download_interval_sec;
         while remaining_sec > 0 {
             // 发送章节休眠事件
             let _ = DownloadSleepingEvent {
@@ -578,7 +572,7 @@ impl DownloadImgTask {
 
         tracing::trace!(comic_id, comic_title, url, "开始下载图片");
 
-        let download_format = self.app.state::<RwLock<Config>>().read().download_format;
+        let download_format = self.app.get_config().read().download_format;
         if let Some(extension) = download_format.extension() {
             // 如果图片已存在，则跳过下载
             let save_path = self.get_save_path(extension);
@@ -592,7 +586,12 @@ impl DownloadImgTask {
             }
         }
         // 下载图片
-        let (img_data, img_format) = match self.wnacg_client().get_img_data_and_format(url).await {
+        let (img_data, img_format) = match self
+            .app
+            .get_wnacg_client()
+            .get_img_data_and_format(url)
+            .await
+        {
             Ok(data_and_format) => data_and_format,
             Err(err) => {
                 let err_title = format!("下载图片`{url}`失败");
@@ -637,20 +636,12 @@ impl DownloadImgTask {
             .fetch_add(1, Ordering::Relaxed);
         self.download_task.emit_download_task_event();
 
-        let img_download_interval_sec = self
-            .app
-            .state::<RwLock<Config>>()
-            .read()
-            .img_download_interval_sec;
+        let img_download_interval_sec = self.app.get_config().read().img_download_interval_sec;
         sleep(Duration::from_secs(img_download_interval_sec)).await;
     }
 
     fn get_save_path(&self, extension: &str) -> PathBuf {
-        let use_original_filename = self
-            .app
-            .state::<RwLock<Config>>()
-            .read()
-            .use_original_filename;
+        let use_original_filename = self.app.get_config().read().use_original_filename;
 
         let index_filename = format!("{:04}", self.index + 1);
         let filename = if use_original_filename {
@@ -725,9 +716,5 @@ impl DownloadImgTask {
             }
             _ => ControlFlow::Continue(()),
         }
-    }
-
-    fn wnacg_client(&self) -> WnacgClient {
-        self.app.state::<WnacgClient>().inner().clone()
     }
 }

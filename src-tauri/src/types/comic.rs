@@ -1,13 +1,15 @@
 use std::path::Path;
 
 use anyhow::Context;
-use parking_lot::RwLock;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
-use crate::{config::Config, extensions::ToAnyhow, utils::filename_filter};
+use crate::{
+    extensions::{AppHandleExt, ToAnyhow},
+    utils::filename_filter,
+};
 
 use super::{ImgList, Tag};
 
@@ -143,12 +145,7 @@ impl Comic {
             .context(format!("没有找到简介的<p>: {document_html}"))?
             .html();
 
-        let is_downloaded = app
-            .state::<RwLock<Config>>()
-            .read()
-            .download_dir
-            .join(&title)
-            .exists();
+        let is_downloaded = app.get_config().read().download_dir.join(&title).exists();
         let is_downloaded = Some(is_downloaded);
 
         Ok(Comic {
@@ -174,7 +171,7 @@ impl Comic {
         // 这个comic中的is_downloaded字段是None，需要重新计算
 
         let is_downloaded = app
-            .state::<RwLock<Config>>()
+            .get_config()
             .read()
             .download_dir
             .join(&comic.title)

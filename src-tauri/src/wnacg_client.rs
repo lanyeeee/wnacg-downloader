@@ -3,16 +3,15 @@ use std::{io::Cursor, time::Duration};
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use image::ImageFormat;
-use parking_lot::RwLock;
 use reqwest::{Client, StatusCode};
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::{
-    config::Config,
+    extensions::AppHandleExt,
     types::{Comic, DownloadFormat, GetFavoriteResult, ImgList, SearchResult, UserProfile},
 };
 
@@ -87,7 +86,7 @@ impl WnacgClient {
     }
 
     pub async fn get_user_profile(&self) -> anyhow::Result<UserProfile> {
-        let cookie = self.app.state::<RwLock<Config>>().read().cookie.clone();
+        let cookie = self.app.get_config().read().cookie.clone();
         // 发送获取用户信息请求
         let http_resp = self
             .api_client
@@ -224,7 +223,7 @@ impl WnacgClient {
         shelf_id: i64,
         page_num: i64,
     ) -> anyhow::Result<GetFavoriteResult> {
-        let cookie = self.app.state::<RwLock<Config>>().read().cookie.clone();
+        let cookie = self.app.get_config().read().cookie.clone();
         // 发送获取收藏夹请求
         let url = format!("https://{API_DOMAIN}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
         let http_resp = self
@@ -280,7 +279,7 @@ impl WnacgClient {
             _ => return Err(anyhow!("原图出现了意料之外的格式: {content_type}")),
         };
         // 确定目标格式
-        let download_format = self.app.state::<RwLock<Config>>().read().download_format;
+        let download_format = self.app.get_config().read().download_format;
         let target_format = match download_format {
             DownloadFormat::Jpeg => ImageFormat::Jpeg,
             DownloadFormat::Png => ImageFormat::Png,

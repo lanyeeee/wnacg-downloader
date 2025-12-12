@@ -9,14 +9,13 @@ use lopdf::{
     content::{Content, Operation},
     dictionary, Document, Object, Stream,
 };
-use parking_lot::RwLock;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_specta::Event;
 use zip::{write::SimpleFileOptions, ZipWriter};
 
 use crate::{
-    config::Config,
     events::{ExportCbzEvent, ExportPdfEvent},
+    extensions::AppHandleExt,
     types::{Comic, ComicInfo},
 };
 
@@ -235,15 +234,9 @@ fn read_image_to_buffer(image_path: &Path) -> anyhow::Result<Vec<u8>> {
 }
 
 fn get_comic_download_dir(app: &AppHandle, comic: &Comic) -> PathBuf {
-    app.state::<RwLock<Config>>()
-        .read()
-        .download_dir
-        .join(&comic.title)
+    app.get_config().read().download_dir.join(&comic.title)
 }
 
 fn get_comic_export_dir(app: &AppHandle, comic: &Comic) -> PathBuf {
-    app.state::<RwLock<Config>>()
-        .read()
-        .export_dir
-        .join(&comic.title)
+    app.get_config().read().export_dir.join(&comic.title)
 }

@@ -83,8 +83,10 @@ pub fn run() {
                 .app_data_dir()
                 .context("获取app_data_dir目录失败")?;
 
-            std::fs::create_dir_all(&app_data_dir)
-                .context(format!("创建app_data_dir目录`{app_data_dir:?}`失败"))?;
+            std::fs::create_dir_all(&app_data_dir).context(format!(
+                "创建app_data_dir目录`{}`失败",
+                app_data_dir.display()
+            ))?;
 
             let config = RwLock::new(Config::new(app.handle())?);
             app.manage(config);

@@ -163,10 +163,12 @@ impl Comic {
 
     pub fn from_metadata(app: &AppHandle, metadata_path: &Path) -> anyhow::Result<Comic> {
         let comic_json = std::fs::read_to_string(metadata_path).context(format!(
-            "从元数据转为Comic失败，读取元数据文件 {metadata_path:?} 失败"
+            "从元数据转为Comic失败，读取元数据文件`{}`失败",
+            metadata_path.display()
         ))?;
         let mut comic = serde_json::from_str::<Comic>(&comic_json).context(format!(
-            "从元数据转为Comic失败，将 {metadata_path:?} 反序列化为Comic失败"
+            "从元数据转为Comic失败，将`{}`反序列化为Comic失败",
+            metadata_path.display()
         ))?;
         // 这个comic中的is_downloaded字段是None，需要重新计算
 

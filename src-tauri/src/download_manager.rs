@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    io::Cursor,
     ops::ControlFlow,
     path::{Path, PathBuf},
     sync::{
@@ -10,6 +11,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
+use bytes::Bytes;
 use image::ImageFormat;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -612,11 +614,12 @@ impl DownloadImgTask {
                 return;
             }
         };
+        let img_data_len = img_data.len() as u64;
 
         tracing::trace!(comic_id, comic_title, url, "图片成功下载到内存");
 
         // 获取图片格式的扩展名
-        let extension = match img_format {
+        let original_img_extension = match img_format {
             ImageFormat::Jpeg => "jpg",
             ImageFormat::Png => "png",
             ImageFormat::WebP => "webp",
@@ -628,14 +631,22 @@ impl DownloadImgTask {
             }
         };
 
+        let extension = download_format
+            .extension()
+            .unwrap_or(original_img_extension);
+
         let save_path = self.get_save_path(extension);
+
+        let target_format = download_format.to_image_format().unwrap_or(img_format);
+
         // 保存图片
-        if let Err(err) = std::fs::write(&save_path, &img_data).map_err(anyhow::Error::from) {
+        if let Err(err) = save_img(&save_path, target_format, img_data, img_format).await {
             let err_title = format!("保存图片`{}`失败", save_path.display());
             let string_chain = err.to_string_chain();
             tracing::error!(err_title, message = string_chain);
             return;
         }
+
         tracing::trace!(
             comic_id,
             url,
@@ -643,11 +654,11 @@ impl DownloadImgTask {
             "图片成功保存到`{}`",
             save_path.display()
         );
+
         // 记录下载字节数
         self.download_manager
             .byte_per_sec
-            .fetch_add(img_data.len() as u64, Ordering::Relaxed);
-        tracing::trace!(comic_id, url, comic_title, "图片下载成功");
+            .fetch_add(img_data_len, Ordering::Relaxed);
 
         self.download_task
             .downloaded_img_count
@@ -735,4 +746,49 @@ impl DownloadImgTask {
             _ => ControlFlow::Continue(()),
         }
     }
+}
+
+async fn save_img(
+    save_path: &Path,
+    target_format: ImageFormat,
+    src_img_data: Bytes,
+    src_format: ImageFormat,
+) -> anyhow::Result<()> {
+    if target_format == src_format {
+        // 如果target_format与src_format匹配，则直接保存
+        std::fs::write(save_path, &src_img_data)
+            .context(format!("将图片数据写入`{}`失败", save_path.display()))?;
+        return Ok(());
+    }
+
+    let save_path = save_path.to_path_buf();
+    // 图像处理的闭包
+    let process_img = move || -> anyhow::Result<()> {
+        // 如果target_format与src_format不匹配，则需要转换格式
+        let img = image::load_from_memory(&src_img_data).context("加载图片数据失败")?;
+
+        let mut converted_data = Vec::new();
+
+        if target_format != ImageFormat::Jpeg
+            && target_format != ImageFormat::Png
+            && target_format != ImageFormat::WebP
+        {
+            return Err(anyhow!("不支持的图片格式: {:?}", target_format));
+        }
+        img.write_to(&mut Cursor::new(&mut converted_data), target_format)
+            .context(format!("将`{src_format:?}`转换为`{target_format:?}`失败"))?;
+
+        std::fs::write(&save_path, &converted_data)
+            .context(format!("将图片数据写入`{}`失败", save_path.display()))?;
+
+        Ok(())
+    };
+
+    // 因为图像处理是CPU密集型操作，所以使用rayon并发处理
+    let (sender, receiver) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
+    rayon::spawn(move || {
+        let _ = sender.send(process_img());
+    });
+    // 在tokio任务中等待rayon任务的完成，避免阻塞worker threads
+    receiver.await?
 }

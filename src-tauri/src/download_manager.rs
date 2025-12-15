@@ -343,11 +343,11 @@ impl DownloadTask {
         let download_format = self.app.get_config().read().download_format;
         let extension = download_format.extension();
         for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
-            // path有扩展名，且能转换为utf8，并与`config.download_format`一致，才保留
+            // path有扩展名，且能转换为utf8，并与`config.download_format`一致或是gif，则保留
             let should_keep = path
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| Some(ext) == extension);
+                .is_some_and(|ext| ext == "gif" || Some(ext) == extension);
             if should_keep {
                 continue;
             }
@@ -583,14 +583,33 @@ impl DownloadImgTask {
         let url = &self.url;
         let comic_id = self.download_task.comic.id;
         let comic_title = &self.download_task.comic.title;
+        let temp_download_dir = &self.temp_download_dir;
 
-        tracing::trace!(comic_id, comic_title, url, "开始下载图片");
+        let (use_original_filename, download_format) = {
+            let config = self.app.get_config();
+            let config = config.read();
+            (config.use_original_filename, config.download_format)
+        };
 
-        let download_format = self.app.get_config().read().download_format;
-        if let Some(extension) = download_format.extension() {
-            // 如果图片已存在，则跳过下载
-            let save_path = self.get_save_path(extension);
-            if save_path.exists() {
+        let index_filename = format!("{:04}", self.index + 1);
+        let original_filename = self
+            .url
+            .rsplit('/')
+            .next()
+            .and_then(|s| s.split('.').next())
+            .unwrap_or(&index_filename);
+        let img_filename = if use_original_filename {
+            original_filename
+        } else {
+            &index_filename
+        };
+
+        if let Some(ext) = download_format.extension() {
+            let user_format_path = temp_download_dir.join(format!("{img_filename}.{ext}"));
+            let gif_path = temp_download_dir.join(format!("{img_filename}.gif"));
+
+            if user_format_path.exists() || gif_path.exists() {
+                // 如果图片已存在，则跳过下载
                 tracing::trace!(comic_id, comic_title, url, "图片已存在，跳过下载");
                 self.download_task
                     .downloaded_img_count
@@ -599,6 +618,9 @@ impl DownloadImgTask {
                 return;
             }
         }
+
+        tracing::trace!(comic_id, comic_title, url, "开始下载图片");
+
         // 下载图片
         let (img_data, img_format) = match self
             .app
@@ -619,25 +641,29 @@ impl DownloadImgTask {
         tracing::trace!(comic_id, comic_title, url, "图片成功下载到内存");
 
         // 获取图片格式的扩展名
-        let original_img_extension = match img_format {
+        let src_img_ext = match img_format {
             ImageFormat::Jpeg => "jpg",
             ImageFormat::Png => "png",
             ImageFormat::WebP => "webp",
+            ImageFormat::Gif => "gif",
             _ => {
                 let err_title = format!("保存图片`{url}`失败");
-                let err_msg = format!("{img_format:?}格式不支持");
+                let err_msg = format!("遇到了预料之外的图片格式`{img_format:?}`，请反馈给开发者");
                 tracing::error!(err_title, message = err_msg);
                 return;
             }
         };
 
-        let extension = download_format
-            .extension()
-            .unwrap_or(original_img_extension);
+        let ext = match img_format {
+            ImageFormat::Gif => "gif",
+            _ => download_format.extension().unwrap_or(src_img_ext),
+        };
+        let save_path = temp_download_dir.join(format!("{img_filename}.{ext}"));
 
-        let save_path = self.get_save_path(extension);
-
-        let target_format = download_format.to_image_format().unwrap_or(img_format);
+        let target_format = match img_format {
+            ImageFormat::Gif => ImageFormat::Gif,
+            _ => download_format.to_image_format().unwrap_or(img_format),
+        };
 
         // 保存图片
         if let Err(err) = save_img(&save_path, target_format, img_data, img_format).await {
@@ -667,25 +693,6 @@ impl DownloadImgTask {
 
         let img_download_interval_sec = self.app.get_config().read().img_download_interval_sec;
         sleep(Duration::from_secs(img_download_interval_sec)).await;
-    }
-
-    fn get_save_path(&self, extension: &str) -> PathBuf {
-        let use_original_filename = self.app.get_config().read().use_original_filename;
-
-        let index_filename = format!("{:04}", self.index + 1);
-        let filename = if use_original_filename {
-            let original_filename = self
-                .url
-                .rsplit('/')
-                .next()
-                .and_then(|s| s.split('.').next())
-                .unwrap_or(&index_filename);
-            format!("{original_filename}.{extension}")
-        } else {
-            format!("{index_filename}.{extension}")
-        };
-
-        self.temp_download_dir.join(filename)
     }
 
     async fn acquire_img_permit<'a>(

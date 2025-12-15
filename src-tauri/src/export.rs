@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsStr,
     io::{Read, Write},
     path::{Path, PathBuf},
 };
@@ -15,7 +14,7 @@ use zip::{write::SimpleFileOptions, ZipWriter};
 
 use crate::{
     events::{ExportCbzEvent, ExportPdfEvent},
-    extensions::AppHandleExt,
+    extensions::{AppHandleExt, PathIsImg},
     types::{Comic, ComicInfo},
 };
 
@@ -89,7 +88,7 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         ))?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
-        .filter(|path| path.extension() != Some(OsStr::new("json"))); // 过滤掉元数据.json文件;
+        .filter(|path| path.is_img());
     for image_path in image_paths {
         if !image_path.is_file() {
             continue;
@@ -155,7 +154,7 @@ fn create_pdf(comic_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> 
         .context(format!("读取目录`{}`失败", comic_download_dir.display()))?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
-        .filter(|path| path.extension() != Some(OsStr::new("json"))) // 过滤掉元数据.json文件
+        .filter(|path| path.is_common_img())
         .collect::<Vec<_>>();
     image_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 

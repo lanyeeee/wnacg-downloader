@@ -1,4 +1,4 @@
-use std::{io::Cursor, time::Duration};
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
@@ -12,7 +12,7 @@ use tauri::AppHandle;
 
 use crate::{
     extensions::AppHandleExt,
-    types::{Comic, DownloadFormat, GetFavoriteResult, ImgList, SearchResult, UserProfile},
+    types::{Comic, GetFavoriteResult, ImgList, SearchResult, UserProfile},
 };
 
 const API_DOMAIN: &str = "www.wnacg03.cc";

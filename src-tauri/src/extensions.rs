@@ -36,6 +36,30 @@ impl<T> ToAnyhow<T> for Result<T, SelectorErrorKind<'_>> {
     }
 }
 
+pub trait PathIsImg {
+    /// 判断路径是否为图片(jpg/png/webp/gif)
+    fn is_img(&self) -> bool;
+
+    /// 判断路径是否为普通图片(jpg/png/webp)
+    fn is_common_img(&self) -> bool;
+}
+
+impl PathIsImg for std::path::Path {
+    fn is_img(&self) -> bool {
+        self.extension()
+            .and_then(|ext| ext.to_str())
+            .map(str::to_lowercase)
+            .is_some_and(|ext| matches!(ext.as_str(), "jpg" | "png" | "webp" | "gif"))
+    }
+
+    fn is_common_img(&self) -> bool {
+        self.extension()
+            .and_then(|ext| ext.to_str())
+            .map(str::to_lowercase)
+            .is_some_and(|ext| matches!(ext.as_str(), "jpg" | "png" | "webp"))
+    }
+}
+
 pub trait AppHandleExt {
     fn get_config(&self) -> State<RwLock<Config>>;
     fn get_wnacg_client(&self) -> State<WnacgClient>;

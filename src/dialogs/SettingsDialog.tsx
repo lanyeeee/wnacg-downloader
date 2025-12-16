@@ -1,4 +1,4 @@
-import { defineComponent } from 'vue'
+import { defineComponent, ref } from 'vue'
 import { useStore } from '../store.ts'
 import {
   NButton,
@@ -12,6 +12,8 @@ import {
   useMessage,
   NInputGroup,
   NInputGroupLabel,
+  NRadioButton,
+  NInput,
 } from 'naive-ui'
 import { commands } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
@@ -30,6 +32,8 @@ export default defineComponent({
   setup(props, { emit }) {
     const store = useStore()
     const message = useMessage()
+
+    const proxyHost = ref<string>(store.config?.proxyHost ?? '')
 
     async function showConfigPathInFileManager() {
       const configPath = await path.join(await appDataDir(), 'config.json')
@@ -169,6 +173,53 @@ export default defineComponent({
                 <NInputGroupLabel size="small">秒</NInputGroupLabel>
               </NInputGroup>
             </div>
+
+            <span class="font-bold mt-2">代理类型</span>
+            <NRadioGroup
+              size="small"
+              value={store.config?.proxyMode}
+              onUpdate:value={(value) => {
+                if (store.config !== undefined) {
+                  store.config.proxyMode = value
+                }
+              }}>
+              <NRadioButton value="System">系统代理</NRadioButton>
+              <NRadioButton value="NoProxy">直连</NRadioButton>
+              <NRadioButton value="Custom">自定义</NRadioButton>
+            </NRadioGroup>
+            {store.config?.proxyMode === 'Custom' && (
+              <NInputGroup class="mt-1">
+                <NInputGroupLabel size="small">http://</NInputGroupLabel>
+                <NInput
+                  size="small"
+                  placeholder=""
+                  value={proxyHost.value}
+                  onUpdate:value={(value) => (proxyHost.value = value)}
+                  onBlur={() => {
+                    if (store.config !== undefined) {
+                      store.config.proxyHost = proxyHost.value
+                    }
+                  }}
+                  onKeydown={(e: KeyboardEvent) => {
+                    if (e.key === 'Enter' && store.config !== undefined) {
+                      store.config.proxyHost = proxyHost.value
+                    }
+                  }}
+                />
+                <NInputGroupLabel size="small">:</NInputGroupLabel>
+                <NInputNumber
+                  size="small"
+                  placeholder=""
+                  value={store.config?.proxyPort}
+                  onUpdate:value={(value) => {
+                    if (store.config !== undefined && value !== null) {
+                      store.config.proxyPort = value
+                    }
+                  }}
+                  parse={(x: string) => parseInt(x)}
+                />
+              </NInputGroup>
+            )}
 
             <span class="font-bold mt-2">其他</span>
             <NTooltip placement="top">

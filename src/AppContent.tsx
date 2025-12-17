@@ -48,6 +48,34 @@ export default defineComponent({
       { deep: true },
     )
 
+    watch(
+      () => store.config?.cookie,
+      async (value, oldValue) => {
+        if (store.config === undefined) {
+          return
+        }
+        if (oldValue !== undefined && oldValue !== '' && value === '') {
+          // 如果旧的 cookie 不为空，新的 cookie 为空，相当于退出登录
+          store.userProfile = undefined
+          store.config.cookie = ''
+          message.success('已退出登录')
+          return
+        } else if (value === undefined || value === '') {
+          // 如果 cookie 为空，说明用户没有登录
+          return
+        }
+
+        const result = await commands.getUserProfile()
+        if (result.status === 'error') {
+          console.error(result.error)
+          store.userProfile = undefined
+          return
+        }
+        store.userProfile = result.data
+        message.success('获取用户信息成功')
+      },
+    )
+
     onMounted(async () => {
       // 屏蔽浏览器右键菜单
       document.oncontextmenu = (event) => {
@@ -82,70 +110,71 @@ export default defineComponent({
       }
     })
 
-    return () => (
-      <div class="h-screen flex flex-col">
-        <div class="flex">
-          <NInputGroup>
-            <NInputGroupLabel>Cookie</NInputGroupLabel>
-            <NInput
-              value={store.config?.cookie}
-              onUpdate:value={(value) => {
-                if (store.config) {
-                  store.config.cookie = value
-                }
-              }}
-              placeholder="手动输入或点击右侧的按钮登录"
-              clearable
+    return () =>
+      store.config !== undefined && (
+        <div class="h-screen flex flex-col">
+          <div class="flex">
+            <NInputGroup>
+              <NInputGroupLabel>Cookie</NInputGroupLabel>
+              <NInput
+                value={store.config?.cookie}
+                onUpdate:value={(value) => {
+                  if (store.config) {
+                    store.config.cookie = value
+                  }
+                }}
+                placeholder="手动输入或点击右侧的按钮登录"
+                clearable
+              />
+            </NInputGroup>
+            <NButton type="primary" onClick={() => (loginDialogShowing.value = true)}>
+              账号登录
+            </NButton>
+            <NButton onClick={() => (logDialogShowing.value = true)}>日志</NButton>
+            <NButton onClick={() => (aboutDialogShowing.value = true)}>关于</NButton>
+            {store.userProfile && (
+              <div class="flex items-center">
+                <NAvatar src={store.userProfile.avatar} round />
+                <span class="whitespace-nowrap">{store.userProfile.username}</span>
+              </div>
+            )}
+          </div>
+          <div class="flex flex-1 overflow-hidden">
+            <NTabs
+              class="h-full w-1/2"
+              value={store.currentTabName}
+              onUpdate:value={(value) => (store.currentTabName = value as CurrentTabName)}
+              type="line"
+              size="small"
+              animated>
+              <NTabPane class="h-full overflow-auto p-0!" name="search" tab="漫画搜索" display-directive="show">
+                <SearchPane ref={searchPane} />
+              </NTabPane>
+              <NTabPane class="h-full overflow-auto p-0!" name="favorite" tab="我的书架" display-directive="show">
+                <FavoritePane />
+              </NTabPane>
+              <NTabPane class="h-full overflow-auto p-0!" name="downloaded" tab="本地库存" display-directive="show">
+                <DownloadedPane />
+              </NTabPane>
+              <NTabPane class="h-full overflow-auto p-0!" name="comic" tab="漫画详情" display-directive="show">
+                {searchPane.value && <ComicPane searchByTag={searchPane.value.searchByTag} />}
+              </NTabPane>
+            </NTabs>
+            <DownloadingPane class="h-full w-1/2 overflow-auto" />
+            <LoginDialog
+              showing={loginDialogShowing.value}
+              onUpdate:showing={(showing) => (loginDialogShowing.value = showing)}
             />
-          </NInputGroup>
-          <NButton type="primary" onClick={() => (loginDialogShowing.value = true)}>
-            账号登录
-          </NButton>
-          <NButton onClick={() => (logDialogShowing.value = true)}>日志</NButton>
-          <NButton onClick={() => (aboutDialogShowing.value = true)}>关于</NButton>
-          {store.userProfile && (
-            <div class="flex items-center">
-              <NAvatar src={store.userProfile.avatar} round />
-              <span class="whitespace-nowrap">{store.userProfile.username}</span>
-            </div>
-          )}
+            <LogDialog
+              showing={logDialogShowing.value}
+              onUpdate:showing={(showing) => (logDialogShowing.value = showing)}
+            />
+            <AboutDialog
+              showing={aboutDialogShowing.value}
+              onUpdate:showing={(showing) => (aboutDialogShowing.value = showing)}
+            />
+          </div>
         </div>
-        <div class="flex flex-1 overflow-hidden">
-          <NTabs
-            class="h-full w-1/2"
-            value={store.currentTabName}
-            onUpdate:value={(value) => (store.currentTabName = value as CurrentTabName)}
-            type="line"
-            size="small"
-            animated>
-            <NTabPane class="h-full overflow-auto p-0!" name="search" tab="漫画搜索" display-directive="show">
-              <SearchPane ref={searchPane} />
-            </NTabPane>
-            <NTabPane class="h-full overflow-auto p-0!" name="favorite" tab="我的书架" display-directive="show">
-              <FavoritePane />
-            </NTabPane>
-            <NTabPane class="h-full overflow-auto p-0!" name="downloaded" tab="本地库存" display-directive="show">
-              <DownloadedPane />
-            </NTabPane>
-            <NTabPane class="h-full overflow-auto p-0!" name="comic" tab="漫画详情" display-directive="show">
-              {searchPane.value && <ComicPane searchByTag={searchPane.value.searchByTag} />}
-            </NTabPane>
-          </NTabs>
-          <DownloadingPane class="h-full w-1/2 overflow-auto" />
-          <LoginDialog
-            showing={loginDialogShowing.value}
-            onUpdate:showing={(showing) => (loginDialogShowing.value = showing)}
-          />
-          <LogDialog
-            showing={logDialogShowing.value}
-            onUpdate:showing={(showing) => (logDialogShowing.value = showing)}
-          />
-          <AboutDialog
-            showing={aboutDialogShowing.value}
-            onUpdate:showing={(showing) => (aboutDialogShowing.value = showing)}
-          />
-        </div>
-      </div>
-    )
+      )
   },
 })

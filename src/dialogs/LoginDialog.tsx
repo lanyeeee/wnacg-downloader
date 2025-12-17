@@ -1,4 +1,4 @@
-import { defineComponent, ref, watch } from 'vue'
+import { defineComponent, ref } from 'vue'
 import { useMessage, NModal, NDialog } from 'naive-ui'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
@@ -22,35 +22,6 @@ export default defineComponent({
 
     const username = ref<string>('')
     const password = ref<string>('')
-
-    watch(
-      () => store.config?.cookie,
-      async (value, oldValue) => {
-        if (store.config === undefined) {
-          return
-        }
-        if (oldValue !== undefined && oldValue !== '' && value === '') {
-          // 如果旧的 cookie 不为空，新的 cookie 为空，相当于退出登录
-          store.userProfile = undefined
-          store.config.cookie = ''
-          message.success('已退出登录')
-          return
-        } else if (value === undefined || value === '') {
-          // 如果 cookie 为空，说明用户没有登录
-          return
-        }
-
-        const result = await commands.getUserProfile()
-        if (result.status === 'error') {
-          console.error(result.error)
-          store.userProfile = undefined
-          return
-        }
-        store.userProfile = result.data
-        message.success('获取用户信息成功')
-        emit('update:showing', false)
-      },
-    )
 
     async function login() {
       if (store.config === undefined) {

@@ -169,6 +169,7 @@ logEvent: "log-event"
 
 /** user-defined types **/
 
+export type ApiDomainMode = "Default" | "Custom"
 export type Comic = { 
 /**
  * 漫画id
@@ -258,7 +259,7 @@ additionalInfo: string;
  */
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; proxyMode: ProxyMode; proxyHost: string; proxyPort: number; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; useOriginalFilename: boolean }
+export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; proxyMode: ProxyMode; proxyHost: string; proxyPort: number; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; useOriginalFilename: boolean; apiDomainMode: ApiDomainMode; customApiDomain: string }
 export type DownloadFormat = "Jpeg" | "Png" | "Webp" | "Original"
 export type DownloadSleepingEvent = { comicId: number; remainingSec: number }
 export type DownloadSpeedEvent = { speed: string }

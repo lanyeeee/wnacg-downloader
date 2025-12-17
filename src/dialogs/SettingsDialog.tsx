@@ -1,4 +1,4 @@
-import { defineComponent, ref } from 'vue'
+import { defineComponent, onMounted, ref } from 'vue'
 import { useStore } from '../store.ts'
 import {
   NButton,
@@ -33,7 +33,16 @@ export default defineComponent({
     const store = useStore()
     const message = useMessage()
 
-    const proxyHost = ref<string>(store.config?.proxyHost ?? '')
+    const proxyHost = ref<string>('')
+    const customApiDomain = ref<string>('')
+
+    onMounted(() => {
+      console.log(store.config)
+      if (store.config !== undefined) {
+        proxyHost.value = store.config.proxyHost
+        customApiDomain.value = store.config.customApiDomain
+      }
+    })
 
     async function showConfigPathInFileManager() {
       const configPath = await path.join(await appDataDir(), 'config.json')
@@ -100,6 +109,45 @@ export default defineComponent({
                 }}
               </NTooltip>
             </NRadioGroup>
+
+            <span class="font-bold mt-2">API域名</span>
+            <NRadioGroup
+              size="small"
+              value={store.config?.apiDomainMode}
+              onUpdate:value={(value) => {
+                if (store.config !== undefined) {
+                  store.config.apiDomainMode = value
+                }
+              }}>
+              <NRadioButton value="Default">默认</NRadioButton>
+              <NRadioButton value="Custom">自定义</NRadioButton>
+            </NRadioGroup>
+            {store.config?.apiDomainMode === 'Custom' && (
+              <NInputGroup class="mt-1">
+                <NInputGroupLabel size="small">自定义API域名</NInputGroupLabel>
+                <NInput
+                  size="small"
+                  placeholder=""
+                  value={customApiDomain.value}
+                  onUpdate:value={(value) => {
+                    if (store.config !== undefined) {
+                      customApiDomain.value = value
+                    }
+                  }}
+                  onBlur={() => {
+                    if (store.config !== undefined) {
+                      store.config.customApiDomain = customApiDomain.value
+                    }
+                  }}
+                  onKeydown={(e: KeyboardEvent) => {
+                    console.log(e)
+                    if (e.key === 'Enter' && store.config !== undefined) {
+                      store.config.customApiDomain = customApiDomain.value
+                    }
+                  }}
+                />
+              </NInputGroup>
+            )}
 
             <span class="font-bold mt-2">下载速度</span>
             <div class="flex flex-col gap-2">

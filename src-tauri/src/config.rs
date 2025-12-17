@@ -6,6 +6,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::types::DownloadFormat;
 
+const DEFAULT_API_DOMAIN: &str = "www.wnacg03.cc";
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
@@ -22,6 +24,8 @@ pub struct Config {
     pub img_concurrency: usize,
     pub img_download_interval_sec: u64,
     pub use_original_filename: bool,
+    pub api_domain_mode: ApiDomainMode,
+    pub custom_api_domain: String,
 }
 
 impl Config {
@@ -51,6 +55,14 @@ impl Config {
         let config_string = serde_json::to_string_pretty(self)?;
         std::fs::write(config_path, config_string)?;
         Ok(())
+    }
+
+    pub fn get_api_domain(&self) -> String {
+        if self.api_domain_mode == ApiDomainMode::Custom {
+            self.custom_api_domain.clone()
+        } else {
+            DEFAULT_API_DOMAIN.to_string()
+        }
     }
 
     fn merge_config(config_string: &str, app_data_dir: &Path) -> Config {
@@ -90,6 +102,8 @@ impl Config {
             img_concurrency: 10,
             img_download_interval_sec: 1,
             use_original_filename: false,
+            api_domain_mode: ApiDomainMode::Default,
+            custom_api_domain: DEFAULT_API_DOMAIN.to_string(),
         }
     }
 }
@@ -99,5 +113,12 @@ pub enum ProxyMode {
     #[default]
     System,
     NoProxy,
+    Custom,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub enum ApiDomainMode {
+    #[default]
+    Default,
     Custom,
 }

@@ -17,8 +17,6 @@ use crate::{
     types::{Comic, GetFavoriteResult, ImgList, SearchResult, UserProfile},
 };
 
-const API_DOMAIN: &str = "www.wnacg03.cc";
-
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginResp {
@@ -64,11 +62,12 @@ impl WnacgClient {
             "login_pass": password,
         });
         // 发送登录请求
+        let api_domain = self.get_api_domain();
         let request = self
             .api_client
             .read()
-            .post(format!("https://{API_DOMAIN}/users-check_login.html"))
-            .header("referer", format!("https://{API_DOMAIN}/"))
+            .post(format!("https://{api_domain}/users-check_login.html"))
+            .header("referer", format!("https://{api_domain}/"))
             .form(&form);
         let http_resp = request.send().await?;
         // 检查http响应状态码
@@ -101,12 +100,13 @@ impl WnacgClient {
     pub async fn get_user_profile(&self) -> anyhow::Result<UserProfile> {
         let cookie = self.app.get_config().read().cookie.clone();
         // 发送获取用户信息请求
+        let api_domain = self.get_api_domain();
         let request = self
             .api_client
             .read()
-            .get(format!("https://{API_DOMAIN}/users.html"))
+            .get(format!("https://{api_domain}/users.html"))
             .header("cookie", cookie)
-            .header("referer", format!("https://{API_DOMAIN}/"));
+            .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -132,11 +132,12 @@ impl WnacgClient {
             "s": "create_time_DESC",
             "p": page_num,
         });
+        let api_domain = self.get_api_domain();
         let request = self
             .api_client
             .read()
-            .get(format!("https://{API_DOMAIN}/search/index.php"))
-            .header("referer", format!("https://{API_DOMAIN}/"))
+            .get(format!("https://{api_domain}/search/index.php"))
+            .header("referer", format!("https://{api_domain}/"))
             .query(&params);
         let http_resp = request.send().await?;
         let status = http_resp.status();
@@ -155,12 +156,13 @@ impl WnacgClient {
         tag_name: &str,
         page_num: i64,
     ) -> anyhow::Result<SearchResult> {
-        let url = format!("https://{API_DOMAIN}/albums-index-page-{page_num}-tag-{tag_name}.html");
+        let api_domain = self.get_api_domain();
+        let url = format!("https://{api_domain}/albums-index-page-{page_num}-tag-{tag_name}.html");
         let request = self
             .api_client
             .read()
             .get(url)
-            .header("referer", format!("https://{API_DOMAIN}/"));
+            .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
@@ -174,12 +176,13 @@ impl WnacgClient {
     }
 
     pub async fn get_img_list(&self, id: i64) -> anyhow::Result<ImgList> {
-        let url = format!("https://{API_DOMAIN}/photos-gallery-aid-{id}.html");
+        let api_domain = self.get_api_domain();
+        let url = format!("https://{api_domain}/photos-gallery-aid-{id}.html");
         let request = self
             .api_client
             .read()
             .get(url)
-            .header("referer", format!("https://{API_DOMAIN}/"));
+            .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
@@ -211,11 +214,12 @@ impl WnacgClient {
     }
 
     pub async fn get_comic(&self, id: i64) -> anyhow::Result<Comic> {
+        let api_domain = self.get_api_domain();
         let request = self
             .api_client
             .read()
-            .get(format!("https://{API_DOMAIN}/photos-index-aid-{id}.html"))
-            .header("referer", format!("https://{API_DOMAIN}/"));
+            .get(format!("https://{api_domain}/photos-index-aid-{id}.html"))
+            .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
@@ -238,13 +242,14 @@ impl WnacgClient {
     ) -> anyhow::Result<GetFavoriteResult> {
         let cookie = self.app.get_config().read().cookie.clone();
         // 发送获取收藏夹请求
-        let url = format!("https://{API_DOMAIN}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
+        let api_domain = self.get_api_domain();
+        let url = format!("https://{api_domain}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
         let request = self
             .api_client
             .read()
             .get(url)
             .header("cookie", cookie)
-            .header("referer", format!("https://{API_DOMAIN}/"));
+            .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -259,12 +264,13 @@ impl WnacgClient {
     }
 
     pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {
-        // 发送下载图片请求
+        // 发送下载图片请
+        let api_domain = self.get_api_domain();
         let request = self
             .img_client
             .read()
             .get(url)
-            .header("referer", format!("https://{API_DOMAIN}/"));
+            .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -283,10 +289,11 @@ impl WnacgClient {
     }
 
     pub async fn get_cover_data(&self, cover_url: &str) -> anyhow::Result<Bytes> {
+        let api_domain = self.get_api_domain();
         let http_resp = self
             .cover_client
             .get(cover_url)
-            .header("referer", format!("https://{API_DOMAIN}/"))
+            .header("referer", format!("https://{api_domain}/"))
             .send()
             .await?;
         let status = http_resp.status();
@@ -296,6 +303,10 @@ impl WnacgClient {
         }
         let cover_data = http_resp.bytes().await?;
         Ok(cover_data)
+    }
+
+    fn get_api_domain(&self) -> String {
+        self.app.get_config().read().get_api_domain()
     }
 }
 

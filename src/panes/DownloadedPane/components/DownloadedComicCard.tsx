@@ -1,6 +1,6 @@
 import { computed, defineComponent, onMounted, PropType } from 'vue'
-import { useStore } from '../store.ts'
-import { Comic, commands } from '../bindings.ts'
+import { useStore } from '../../../store.ts'
+import { Comic, commands } from '../../../bindings.ts'
 import { NButton, NCard } from 'naive-ui'
 import { path } from '@tauri-apps/api'
 

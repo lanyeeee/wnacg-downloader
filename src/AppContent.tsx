@@ -15,11 +15,11 @@ import {
 } from 'naive-ui'
 import LoginDialog from './dialogs/LoginDialog.tsx'
 import AboutDialog from './dialogs/AboutDialog.tsx'
-import DownloadingPane from './panes/DownloadingPane.tsx'
+import ProgressPane from './panes/ProgressPane/ProgressPane.tsx'
 import SearchPane from './panes/SearchPane.tsx'
 import ComicPane from './panes/ComicPane.tsx'
 import FavoritePane from './panes/FavoritePane.tsx'
-import DownloadedPane from './panes/DownloadedPane.tsx'
+import DownloadedPane from './panes/DownloadedPane/DownloadedPane.tsx'
 import { CurrentTabName } from './types.ts'
 
 export default defineComponent({
@@ -160,7 +160,7 @@ export default defineComponent({
                 {searchPane.value && <ComicPane searchByTag={searchPane.value.searchByTag} />}
               </NTabPane>
             </NTabs>
-            <DownloadingPane class="h-full w-1/2 overflow-auto" />
+            <ProgressPane class="h-full w-1/2 overflow-auto" />
             <LoginDialog
               showing={loginDialogShowing.value}
               onUpdate:showing={(showing) => (loginDialogShowing.value = showing)}

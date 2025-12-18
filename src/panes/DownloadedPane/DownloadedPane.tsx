@@ -1,9 +1,9 @@
 import { computed, defineComponent, onMounted, ref, watch } from 'vue'
 import { NButton, NInput, NInputGroup, NInputGroupLabel, useMessage, NPagination, MessageReactive } from 'naive-ui'
 import { open } from '@tauri-apps/plugin-dialog'
-import { useStore } from '../store.ts'
-import { Comic, commands, events } from '../bindings.ts'
-import DownloadedComicCard from '../components/DownloadedComicCard.tsx'
+import { useStore } from '../../store.ts'
+import { Comic, commands, events } from '../../bindings.ts'
+import DownloadedComicCard from './components/DownloadedComicCard.tsx'
 
 interface ProgressData {
   title: string

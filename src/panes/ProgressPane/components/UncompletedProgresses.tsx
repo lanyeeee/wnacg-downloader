@@ -1,8 +1,8 @@
 import { computed, defineComponent, nextTick, ref, watch } from 'vue'
-import { useStore } from '../store.ts'
+import { useStore } from '../../../store.ts'
 import { SelectionArea, SelectionEvent } from '@viselect/vue'
-import { ProgressData } from '../types.ts'
-import { Comic, commands, DownloadTaskState } from '../bindings.ts'
+import { ProgressData } from '../../../types.ts'
+import { Comic, commands, DownloadTaskState } from '../../../bindings.ts'
 import {
   PhPause,
   PhChecks,

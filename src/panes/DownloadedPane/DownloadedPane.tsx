@@ -1,9 +1,19 @@
 import { computed, defineComponent, onMounted, ref, watch } from 'vue'
-import { NButton, NInput, NInputGroup, NInputGroupLabel, useMessage, NPagination, MessageReactive } from 'naive-ui'
+import {
+  NButton,
+  NInput,
+  NInputGroup,
+  NInputGroupLabel,
+  useMessage,
+  NPagination,
+  MessageReactive,
+  NIcon,
+} from 'naive-ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useStore } from '../../store.ts'
 import { Comic, commands, events } from '../../bindings.ts'
 import DownloadedComicCard from './components/DownloadedComicCard.tsx'
+import { PhFolderOpen } from '@phosphor-icons/vue'
 
 interface ProgressData {
   title: string
@@ -129,7 +139,7 @@ export default defineComponent({
 
     return () => (
       <div class="h-full flex flex-col">
-        <div class="flex">
+        <div class="flex px-2 pt-2">
           <NInputGroup>
             <NInputGroupLabel size="small">导出目录</NInputGroupLabel>
             <NInput
@@ -147,11 +157,16 @@ export default defineComponent({
                 onClick: selectExportDir,
               }}
             />
+            <NButton class="w-10" size="small" onClick={showExportDirInFileManager}>
+              {{
+                icon: () => (
+                  <NIcon size={20}>
+                    <PhFolderOpen />
+                  </NIcon>
+                ),
+              }}
+            </NButton>
           </NInputGroup>
-
-          <NButton size="small" onClick={showExportDirInFileManager}>
-            打开目录
-          </NButton>
         </div>
         <div class="flex flex-col overflow-auto">
           <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">

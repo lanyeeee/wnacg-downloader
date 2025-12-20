@@ -1,8 +1,10 @@
 import { defineComponent, ref, watch } from 'vue'
-import { NInput, NButton, NPagination, useMessage, NInputGroup, NInputGroupLabel } from 'naive-ui'
+import { NButton, NPagination, useMessage, NInputGroup, NIcon } from 'naive-ui'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
 import ComicCard from '../components/ComicCard.tsx'
+import { PhArrowRight, PhMagnifyingGlass } from '@phosphor-icons/vue'
+import FloatLabelInput from '../components/FloatLabelInput.tsx'
 
 export default defineComponent({
   name: 'SearchPane',
@@ -12,7 +14,9 @@ export default defineComponent({
     const message = useMessage()
 
     const searchByKeywordInput = ref<string>('')
+    const searchingByKeyword = ref<boolean>(false)
     const searchByTagInput = ref<string>('')
+    const searchingByTag = ref<boolean>(false)
     const searchByComicIdInput = ref<string>('')
     const currentPage = ref<number>(1)
     const comicCardContainer = ref<HTMLElement>()
@@ -27,30 +31,38 @@ export default defineComponent({
     )
 
     async function searchByKeyword(keyword: string, pageNum: number) {
-      console.log(keyword, pageNum)
       searchByKeywordInput.value = keyword
       currentPage.value = pageNum
+
+      searchingByKeyword.value = true
+
       const result = await commands.searchByKeyword(keyword, pageNum)
       if (result.status === 'error') {
+        searchingByKeyword.value = false
         console.error(result.error)
         return
       }
+
+      searchingByKeyword.value = false
       store.searchResult = result.data
-      console.log(result.data)
     }
 
     async function searchByTag(tagName: string, pageNum: number) {
-      console.log(tagName, pageNum)
       searchByTagInput.value = tagName
       currentPage.value = pageNum
+
+      searchingByTag.value = true
+
       const result = await commands.searchByTag(tagName, pageNum)
       if (result.status === 'error') {
+        searchingByTag.value = false
         console.error(result.error)
         return
       }
+
+      searchingByTag.value = false
       store.searchResult = result.data
       store.currentTabName = 'search'
-      console.log(result.data)
     }
 
     async function onPageChange(page: number) {
@@ -70,7 +82,6 @@ export default defineComponent({
       // 如果是数字，直接返回
       const comicId = parseInt(comicIdString)
       if (!isNaN(comicId)) {
-        console.log(comicId)
         return comicId
       }
       // 否则需要从链接中提取
@@ -79,7 +90,6 @@ export default defineComponent({
       if (match === null || match[1] === null) {
         return
       }
-      console.log(match)
       return parseInt(match[1])
     }
 
@@ -101,59 +111,90 @@ export default defineComponent({
     }
 
     const render = () => (
-      <div class="h-full flex flex-col">
-        <NInputGroup>
-          <NInputGroupLabel size="small">关键词</NInputGroupLabel>
-          <NInput
+      <div class="h-full flex flex-col gap-2">
+        <NInputGroup class="box-border px-2 pt-2">
+          <FloatLabelInput
             size="small"
-            placeholder=""
+            label="关键词"
             value={searchByKeywordInput.value}
             onUpdate:value={(value) => (searchByKeywordInput.value = value)}
             clearable
-            onKeydown={(e: KeyboardEvent) => {
-              if (e.key === 'Enter') {
-                searchByKeyword(searchByKeywordInput.value.trim(), 1)
-              }
+            {...{
+              onKeydown: async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  await searchByKeyword(searchByKeywordInput.value.trim(), 1)
+                }
+              },
             }}
           />
-          <NButton size="small" onClick={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}>
-            搜索
+          <NButton
+            loading={searchingByKeyword.value}
+            type="primary"
+            size="small"
+            class="w-15%"
+            onClick={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}>
+            {{
+              icon: () => (
+                <NIcon size={22}>
+                  <PhMagnifyingGlass />
+                </NIcon>
+              ),
+            }}
           </NButton>
         </NInputGroup>
-        <NInputGroup>
-          <NInputGroupLabel size="small">&ensp;标签&ensp;</NInputGroupLabel>
-          <NInput
+        <NInputGroup class="box-border px-2">
+          <FloatLabelInput
             size="small"
-            placeholder=""
+            label="标签"
             value={searchByTagInput.value}
             onUpdate:value={(value) => (searchByTagInput.value = value)}
             clearable
-            onKeydown={(e: KeyboardEvent) => {
-              if (e.key === 'Enter') {
-                searchByTag(searchByTagInput.value.trim(), 1)
-              }
+            {...{
+              onKeydown: async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  await searchByTag(searchByTagInput.value.trim(), 1)
+                }
+              },
             }}
           />
-          <NButton size="small" onClick={() => searchByTag(searchByTagInput.value.trim(), 1)}>
-            搜索
+          <NButton
+            loading={searchingByTag.value}
+            type="primary"
+            size="small"
+            class="w-15%"
+            onClick={() => searchByTag(searchByTagInput.value.trim(), 1)}>
+            {{
+              icon: () => (
+                <NIcon size={22}>
+                  <PhMagnifyingGlass />
+                </NIcon>
+              ),
+            }}
           </NButton>
         </NInputGroup>
-        <NInputGroup>
-          <NInputGroupLabel size="small">漫画ID</NInputGroupLabel>
-          <NInput
-            placeholder="链接也行"
+        <NInputGroup class="box-border px-2">
+          <FloatLabelInput
             size="small"
+            label="漫画ID (链接也行)"
             value={searchByComicIdInput.value}
             onUpdate:value={(value) => (searchByComicIdInput.value = value)}
             clearable
-            onKeydown={(e: KeyboardEvent) => {
-              if (e.key === 'Enter') {
-                pickComic()
-              }
+            {...{
+              onKeydown: async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  await pickComic()
+                }
+              },
             }}
           />
-          <NButton size="small" onClick={() => pickComic()}>
-            直达
+          <NButton type="primary" size="small" class="w-15%" onClick={() => pickComic()}>
+            {{
+              icon: () => (
+                <NIcon size={22}>
+                  <PhArrowRight />
+                </NIcon>
+              ),
+            }}
           </NButton>
         </NInputGroup>
 
@@ -178,7 +219,7 @@ export default defineComponent({
               class="p-2 mt-auto"
               page={currentPage.value}
               pageCount={store.searchResult.totalPage}
-              onUpdate:page={async (page) => await onPageChange(page)}
+              onUpdate:page={(page) => onPageChange(page)}
             />
           </>
         )}

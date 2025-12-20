@@ -59,13 +59,13 @@ export default defineComponent({
 
     return () => {
       if (store.pickedComic === undefined) {
-        return <NEmpty description="请先选择漫画(漫画搜索、我的书架、本地库存)" />
+        return <NEmpty class="pt-2" description="请先选择漫画(漫画搜索、我的书架、本地库存)" />
       }
 
       return (
         <div class="flex flex-col pl-2 h-full">
-          <span class="font-bold text-xl">{store.pickedComic.title}</span>
-          <div class="flex w-full">
+          <span class="font-bold text-xl box-border pt-2 px-2">{store.pickedComic.title}</span>
+          <div class="flex w-full box-border px-2">
             <img class="w-50 object-contain mr-4" src={cover.value} alt="" />
             <div class="flex flex-col w-full">
               <span>ID：{store.pickedComic.id}</span>
@@ -88,7 +88,7 @@ export default defineComponent({
             </div>
           </div>
 
-          <div>
+          <div class="box-border px-2">
             <div class="font-bold">标签</div>
             <div class="flex flex-wrap gap-1">
               {store.pickedComic.tags.map((tag) => (
@@ -104,7 +104,7 @@ export default defineComponent({
             </div>
           </div>
 
-          <div class="break-all" v-html={store.pickedComic.intro} />
+          <div class="break-all box-border px-2" v-html={store.pickedComic.intro} />
         </div>
       )
     }

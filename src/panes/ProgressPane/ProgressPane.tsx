@@ -2,17 +2,16 @@ import { defineComponent, onMounted, ref } from 'vue'
 import { useStore } from '../../store.ts'
 import { commands, events } from '../../bindings.ts'
 import { open } from '@tauri-apps/plugin-dialog'
-import { NButton, NInput, NInputGroup, NInputGroupLabel, NTabPane, NTabs } from 'naive-ui'
+import { NButton, NIcon, NInput, NInputGroup, NInputGroupLabel, NTabPane, NTabs } from 'naive-ui'
 import UncompletedProgresses from './components/UncompletedProgresses.tsx'
 import CompletedProgress from './components/CompletedProgress.tsx'
-import SettingsDialog from '../../dialogs/SettingsDialog.tsx'
+import styles from './ProgressPane.module.css'
+import { PhFolderOpen } from '@phosphor-icons/vue'
 
 export default defineComponent({
   name: 'ProgressPane',
   setup() {
     const store = useStore()
-
-    const settingsShowing = ref<boolean>(false)
 
     const downloadSpeed = ref<string>('')
 
@@ -102,12 +101,8 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="flex flex-col h-full">
-        <div class="flex h-8.5 items-center">
-          <span class="text-lg font-bold">下载列表</span>
-          <span class="ml-auto">下载速度: {downloadSpeed.value}</span>
-        </div>
-        <div class="flex">
+      <div class="flex flex-col h-full overflow-auto">
+        <div class="flex box-border px-2 pt-2">
           <NInputGroup>
             <NInputGroupLabel size="small">下载目录</NInputGroupLabel>
             <NInput
@@ -125,30 +120,37 @@ export default defineComponent({
                 onClick: selectDownloadDir,
               }}
             />
+            <NButton class="w-10" size="small" onClick={showDownloadDirInFileManager}>
+              {{
+                icon: () => (
+                  <NIcon size={20}>
+                    <PhFolderOpen />
+                  </NIcon>
+                ),
+              }}
+            </NButton>
           </NInputGroup>
-          <NButton size="small" onClick={showDownloadDirInFileManager}>
-            打开目录
-          </NButton>
-          <NButton size="small" onClick={() => (settingsShowing.value = true)}>
-            更多设置
-          </NButton>
         </div>
         <NTabs
           size="small"
+          type="line"
           value={tabName.value}
           onUpdate:value={(value) => (tabName.value = value as TabName)}
-          class="flex-1 overflow-hidden">
-          <NTabPane class="h-full p-0! overflow-auto" name="uncompleted" tab="未完成">
-            <UncompletedProgresses />
-          </NTabPane>
-          <NTabPane class="h-full p-0! overflow-auto" name="completed" tab="已完成">
-            <CompletedProgress />
-          </NTabPane>
+          class={[`${styles.progressesTabs}`, 'flex-1 overflow-hidden pt-2']}>
+          {{
+            default: () => (
+              <>
+                <NTabPane class="h-full p-0! overflow-auto" name="uncompleted" tab="未完成">
+                  <UncompletedProgresses />
+                </NTabPane>
+                <NTabPane class="h-full p-0! overflow-auto" name="completed" tab="已完成">
+                  <CompletedProgress />
+                </NTabPane>
+              </>
+            ),
+            suffix: () => <span class="whitespace-nowrap text-ellipsis overflow-hidden">{downloadSpeed.value}</span>,
+          }}
         </NTabs>
-        <SettingsDialog
-          showing={settingsShowing.value}
-          onUpdate:showing={(showing) => (settingsShowing.value = showing)}
-        />
       </div>
     )
   },

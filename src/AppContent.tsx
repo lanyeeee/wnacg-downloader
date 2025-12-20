@@ -12,6 +12,7 @@ import {
   NTabPane,
   NInputGroup,
   NInputGroupLabel,
+  NIcon,
 } from 'naive-ui'
 import LoginDialog from './dialogs/LoginDialog.tsx'
 import AboutDialog from './dialogs/AboutDialog.tsx'
@@ -21,6 +22,8 @@ import ComicPane from './panes/ComicPane.tsx'
 import FavoritePane from './panes/FavoritePane.tsx'
 import DownloadedPane from './panes/DownloadedPane/DownloadedPane.tsx'
 import { CurrentTabName } from './types.ts'
+import { PhClockCounterClockwise, PhGearSix, PhInfo, PhUser } from '@phosphor-icons/vue'
+import SettingsDialog from './dialogs/SettingsDialog.tsx'
 
 export default defineComponent({
   name: 'AppContent',
@@ -32,6 +35,7 @@ export default defineComponent({
 
     const logDialogShowing = ref<boolean>(false)
     const loginDialogShowing = ref<boolean>(false)
+    const settingsDialogShowing = ref<boolean>(false)
     const aboutDialogShowing = ref<boolean>(false)
 
     const searchPane = ref<InstanceType<typeof SearchPane>>()
@@ -113,7 +117,7 @@ export default defineComponent({
     return () =>
       store.config !== undefined && (
         <div class="h-screen flex flex-col">
-          <div class="flex">
+          <div class="flex gap-1 pt-2 px-2">
             <NInputGroup>
               <NInputGroupLabel>Cookie</NInputGroupLabel>
               <NInput
@@ -126,12 +130,18 @@ export default defineComponent({
                 placeholder="手动输入或点击右侧的按钮登录"
                 clearable
               />
+              <NButton type="primary" onClick={() => (loginDialogShowing.value = true)}>
+                {{
+                  icon: () => (
+                    <NIcon size={20}>
+                      <PhUser />
+                    </NIcon>
+                  ),
+                  default: () => <div>登录</div>,
+                }}
+              </NButton>
             </NInputGroup>
-            <NButton type="primary" onClick={() => (loginDialogShowing.value = true)}>
-              账号登录
-            </NButton>
-            <NButton onClick={() => (logDialogShowing.value = true)}>日志</NButton>
-            <NButton onClick={() => (aboutDialogShowing.value = true)}>关于</NButton>
+
             {store.userProfile && (
               <div class="flex items-center">
                 <NAvatar src={store.userProfile.avatar} round />
@@ -139,6 +149,7 @@ export default defineComponent({
               </div>
             )}
           </div>
+
           <div class="flex flex-1 overflow-hidden">
             <NTabs
               class="h-full w-1/2"
@@ -160,7 +171,43 @@ export default defineComponent({
                 {searchPane.value && <ComicPane searchByTag={searchPane.value.searchByTag} />}
               </NTabPane>
             </NTabs>
-            <ProgressPane class="h-full w-1/2 overflow-auto" />
+
+            <div class="w-1/2 overflow-auto flex flex-col">
+              <div class="flex min-h-8.5 gap-col-1 mx-2 items-center border-solid border-0 border-b box-border border-[rgb(239,239,245)]">
+                <div class="text-xl font-bold box-border">下载列表</div>
+                <NButton class="ml-auto" size="small" onClick={() => (logDialogShowing.value = true)}>
+                  {{
+                    icon: () => (
+                      <NIcon size={20}>
+                        <PhClockCounterClockwise />
+                      </NIcon>
+                    ),
+                    default: () => <div>日志</div>,
+                  }}
+                </NButton>
+                <NButton size="small" onClick={() => (settingsDialogShowing.value = true)}>
+                  {{
+                    icon: () => (
+                      <NIcon size={20}>
+                        <PhGearSix />
+                      </NIcon>
+                    ),
+                    default: () => <div>配置</div>,
+                  }}
+                </NButton>
+                <NButton size="small" onClick={() => (aboutDialogShowing.value = true)}>
+                  {{
+                    icon: () => (
+                      <NIcon size={20}>
+                        <PhInfo />
+                      </NIcon>
+                    ),
+                    default: () => <div>关于</div>,
+                  }}
+                </NButton>
+              </div>
+              <ProgressPane />
+            </div>
             <LoginDialog
               showing={loginDialogShowing.value}
               onUpdate:showing={(showing) => (loginDialogShowing.value = showing)}
@@ -168,6 +215,10 @@ export default defineComponent({
             <LogDialog
               showing={logDialogShowing.value}
               onUpdate:showing={(showing) => (logDialogShowing.value = showing)}
+            />
+            <SettingsDialog
+              showing={settingsDialogShowing.value}
+              onUpdate:showing={(showing) => (settingsDialogShowing.value = showing)}
             />
             <AboutDialog
               showing={aboutDialogShowing.value}

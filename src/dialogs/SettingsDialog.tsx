@@ -54,7 +54,7 @@ export default defineComponent({
 
     return () => (
       <NModal show={props.showing} onUpdate:show={(value) => emit('update:showing', value)}>
-        <NDialog class="w-140!" showIcon={false} title="更多设置" onClose={() => emit('update:showing', false)}>
+        <NDialog class="w-140!" showIcon={false} title="配置" onClose={() => emit('update:showing', false)}>
           <div class="flex flex-col">
             <span class="font-bold">下载格式</span>
             <NRadioGroup
@@ -150,18 +150,55 @@ export default defineComponent({
             )}
 
             <span class="font-bold mt-2">下载速度</span>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-1">
+              <div class="flex gap-1">
+                <div class="flex gap-1">
+                  <NInputGroup class="w-35%">
+                    <NInputGroupLabel size="small">漫画并发数</NInputGroupLabel>
+                    <NInputNumber
+                      class="w-full"
+                      size="small"
+                      value={store.config?.comicConcurrency}
+                      onUpdate:value={(value) => {
+                        if (store.config && value !== null) {
+                          message.warning('对漫画并发数的修改需要重启才能生效')
+                          store.config.comicConcurrency = value
+                        }
+                      }}
+                      min={1}
+                      parse={(x: string) => Number(x)}
+                    />
+                  </NInputGroup>
+                  <NInputGroup class="w-65%">
+                    <NInputGroupLabel size="small">每本漫画下载完成后休息</NInputGroupLabel>
+                    <NInputNumber
+                      class="w-full"
+                      size="small"
+                      value={store.config?.comicDownloadIntervalSec}
+                      onUpdate:value={(value) => {
+                        if (store.config && value !== null) {
+                          store.config.comicDownloadIntervalSec = value
+                        }
+                      }}
+                      min={0}
+                      parse={(x: string) => Number(x)}
+                    />
+                    <NInputGroupLabel size="small">秒</NInputGroupLabel>
+                  </NInputGroup>
+                </div>
+              </div>
+
               <div class="flex gap-1">
                 <NInputGroup class="w-35%">
-                  <NInputGroupLabel size="small">漫画并发数</NInputGroupLabel>
+                  <NInputGroupLabel size="small">图片并发数</NInputGroupLabel>
                   <NInputNumber
                     class="w-full"
                     size="small"
-                    value={store.config?.comicConcurrency}
+                    value={store.config?.imgConcurrency}
                     onUpdate:value={(value) => {
                       if (store.config && value !== null) {
-                        message.warning('对漫画并发数的修改需要重启才能生效')
-                        store.config.comicConcurrency = value
+                        message.warning('对图片并发数的修改需要重启才能生效')
+                        store.config.imgConcurrency = value
                       }
                     }}
                     min={1}
@@ -169,14 +206,14 @@ export default defineComponent({
                   />
                 </NInputGroup>
                 <NInputGroup class="w-65%">
-                  <NInputGroupLabel size="small">每本漫画下载完成后休息</NInputGroupLabel>
+                  <NInputGroupLabel size="small">每张图片下载完成后休息</NInputGroupLabel>
                   <NInputNumber
                     class="w-full"
                     size="small"
-                    value={store.config?.comicDownloadIntervalSec}
+                    value={store.config?.imgDownloadIntervalSec}
                     onUpdate:value={(value) => {
                       if (store.config && value !== null) {
-                        store.config.comicDownloadIntervalSec = value
+                        store.config.imgDownloadIntervalSec = value
                       }
                     }}
                     min={0}
@@ -185,41 +222,6 @@ export default defineComponent({
                   <NInputGroupLabel size="small">秒</NInputGroupLabel>
                 </NInputGroup>
               </div>
-            </div>
-
-            <div class="flex gap-1">
-              <NInputGroup class="w-35%">
-                <NInputGroupLabel size="small">图片并发数</NInputGroupLabel>
-                <NInputNumber
-                  class="w-full"
-                  size="small"
-                  value={store.config?.imgConcurrency}
-                  onUpdate:value={(value) => {
-                    if (store.config && value !== null) {
-                      message.warning('对图片并发数的修改需要重启才能生效')
-                      store.config.imgConcurrency = value
-                    }
-                  }}
-                  min={1}
-                  parse={(x: string) => Number(x)}
-                />
-              </NInputGroup>
-              <NInputGroup class="w-65%">
-                <NInputGroupLabel size="small">每张图片下载完成后休息</NInputGroupLabel>
-                <NInputNumber
-                  class="w-full"
-                  size="small"
-                  value={store.config?.imgDownloadIntervalSec}
-                  onUpdate:value={(value) => {
-                    if (store.config && value !== null) {
-                      store.config.imgDownloadIntervalSec = value
-                    }
-                  }}
-                  min={0}
-                  parse={(x: string) => Number(x)}
-                />
-                <NInputGroupLabel size="small">秒</NInputGroupLabel>
-              </NInputGroup>
             </div>
 
             <span class="font-bold mt-2">代理类型</span>

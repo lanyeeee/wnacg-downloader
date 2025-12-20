@@ -13,3 +13,7 @@ body {
 .n-tabs-pane-wrapper {
     @apply h-full;
 }
+
+.n-tabs-nav {
+  @apply px-2;
+}

@@ -1,7 +1,7 @@
 import { computed, defineComponent, ref, watch } from 'vue'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
-import { NEmpty, NPagination, NSelect } from 'naive-ui'
+import { NEmpty, NInputGroup, NInputGroupLabel, NPagination, NSelect } from 'naive-ui'
 import ComicCard from '../components/ComicCard.tsx'
 
 export default defineComponent({
@@ -67,16 +67,18 @@ export default defineComponent({
 
       return (
         <div class="h-full flex flex-col">
-          <div class="flex items-center">
-            <span class="mx-2">书架</span>
-            <NSelect
-              class="w-40%"
-              showCheckmark={false}
-              value={shelfIdSelected.value}
-              size="small"
-              options={shelfOptions.value}
-              onUpdate:value={(shelfId) => getFavourite(shelfId as number, 1)}
-            />
+          <div class="flex items-center pt-2 px-2">
+            <NInputGroup>
+              <NInputGroupLabel size="small">书架</NInputGroupLabel>
+              <NSelect
+                class="w-40%"
+                showCheckmark={false}
+                value={shelfIdSelected.value}
+                size="small"
+                options={shelfOptions.value}
+                onUpdate:value={(shelfId) => getFavourite(shelfId as number, 1)}
+              />
+            </NInputGroup>
           </div>
 
           <div class="flex flex-col overflow-auto">

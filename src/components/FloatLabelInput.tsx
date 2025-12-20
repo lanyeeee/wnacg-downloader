@@ -1,7 +1,7 @@
 import { NInput, NEl } from 'naive-ui'
 import type { InputInst, InputProps } from 'naive-ui'
 import { computed, ref, defineComponent, PropType } from 'vue'
-import './FloatLabelInput.css'
+import styles from './FloatLabelInput.module.css'
 
 export default defineComponent({
   name: 'FloatLabelInput',
@@ -53,6 +53,7 @@ export default defineComponent({
 
     const render = () => (
       <NInput
+        class={styles.floatLabelInput}
         ref={NInputRef}
         size={props.size}
         type={props.type}
@@ -67,7 +68,7 @@ export default defineComponent({
             <NEl
               tag="span"
               class={[
-                'float-label bg-white transition-all duration-200 ease-in-out',
+                `${styles.floatLabel} bg-white transition-all duration-200 ease-in-out`,
                 floating.value ? `text-0.75rem px-0.5 ${translateY.value}` : '',
               ]}>
               {props.label}

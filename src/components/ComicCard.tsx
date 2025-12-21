@@ -5,6 +5,8 @@ import { path } from '@tauri-apps/api'
 import { NButton, NCard } from 'naive-ui'
 import DownloadButton from './DownloadButton.tsx'
 import styles from './ComicCard.module.css'
+import IconButton from './IconButton.tsx'
+import { PhFolderOpen } from '@phosphor-icons/vue'
 
 export default defineComponent({
   name: 'ComicCard',
@@ -96,7 +98,7 @@ export default defineComponent({
           />
           <div class="flex flex-col w-full">
             <span
-              class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
+              class="font-bold text-lg line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
               v-html={props.comicTitleHtml ?? props.comicTitle}
               onClick={pickComic}
             />
@@ -122,13 +124,13 @@ export default defineComponent({
             )}
             <div class="flex mt-auto">
               {props.comicDownloaded && (
-                <NButton size="tiny" onClick={showComicDirInFileManager}>
-                  打开目录
-                </NButton>
+                <IconButton title="打开下载目录" onClick={showComicDirInFileManager}>
+                  <PhFolderOpen size={24} />
+                </IconButton>
               )}
               <DownloadButton
                 class="ml-auto"
-                size="tiny"
+                size="medium"
                 type="primary"
                 comicId={props.comicId}
                 comicDownloaded={props.comicDownloaded}

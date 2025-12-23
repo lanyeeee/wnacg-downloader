@@ -1,8 +1,10 @@
 import { computed, defineComponent, onMounted, PropType } from 'vue'
 import { useStore } from '../../../store.ts'
 import { Comic, commands } from '../../../bindings.ts'
-import { NButton, NCard } from 'naive-ui'
+import { NCard } from 'naive-ui'
 import { path } from '@tauri-apps/api'
+import { PhFilePdf, PhFileZip, PhFolderOpen } from '@phosphor-icons/vue'
+import IconButton from '../../../components/IconButton.tsx'
 
 export default defineComponent({
   name: 'DownloadedComicCard',
@@ -70,22 +72,22 @@ export default defineComponent({
           />
           <div class="flex flex-col w-full">
             <span
-              class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
+              class="font-bold text-lg line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
               v-html={props.comic.title}
               onClick={pickComic}
             />
             <span>分类：{props.comic.category}</span>
             <span>页数：{props.comic.imageCount}P</span>
             <div class="flex mt-auto gap-col-2">
-              <NButton size="tiny" onClick={showComicDirInFileManager}>
-                打开目录
-              </NButton>
-              <NButton class="ml-auto" size="tiny" onClick={exportPdf}>
-                导出pdf
-              </NButton>
-              <NButton size="tiny" onClick={exportCbz}>
-                导出cbz
-              </NButton>
+              <IconButton title="打开下载目录" onClick={showComicDirInFileManager}>
+                <PhFolderOpen size={24} />
+              </IconButton>
+              <IconButton class="ml-auto" title="导出cbz" onClick={exportCbz}>
+                <PhFileZip size={24} />
+              </IconButton>
+              <IconButton title="导出pdf" onClick={exportPdf}>
+                <PhFilePdf size={24} />
+              </IconButton>
             </div>
           </div>
         </div>

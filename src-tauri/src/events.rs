@@ -62,3 +62,16 @@ pub enum ExportCbzEvent {
     #[serde(rename_all = "camelCase")]
     End { uuid: String },
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(tag = "event", content = "data")]
+pub enum DownloadShelfEvent {
+    #[serde(rename_all = "camelCase")]
+    GettingFavorites,
+
+    #[serde(rename_all = "camelCase")]
+    CreatingDownloadTask { current: i64, total: i64 },
+
+    #[serde(rename_all = "camelCase")]
+    End,
+}

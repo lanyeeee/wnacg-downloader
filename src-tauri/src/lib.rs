@@ -21,7 +21,7 @@ use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use wnacg_client::WnacgClient;
 
-use crate::commands::*;
+use crate::{commands::*, events::DownloadShelfEvent};
 
 fn generate_context() -> tauri::Context<Wry> {
     tauri::generate_context!()
@@ -40,6 +40,7 @@ pub fn run() {
             search_by_tag,
             get_comic,
             get_favorite,
+            download_shelf,
             create_download_task,
             pause_download_task,
             resume_download_task,
@@ -58,6 +59,7 @@ pub fn run() {
             ExportPdfEvent,
             ExportCbzEvent,
             DownloadSleepingEvent,
+            DownloadShelfEvent,
         ]);
 
     #[cfg(debug_assertions)]

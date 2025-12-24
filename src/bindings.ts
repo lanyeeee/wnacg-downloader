@@ -67,6 +67,14 @@ async getFavorite(shelfId: number, pageNum: number) : Promise<Result<GetFavorite
     else return { status: "error", error: e  as any };
 }
 },
+async downloadShelf(shelfId: number) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("download_shelf", { shelfId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async createDownloadTask(comic: Comic) : Promise<void> {
     await TAURI_INVOKE("create_download_task", { comic });
 },
@@ -148,6 +156,7 @@ async getCoverData(coverUrl: string) : Promise<Result<number[], CommandError>> {
 
 
 export const events = __makeEvents__<{
+downloadShelfEvent: DownloadShelfEvent,
 downloadSleepingEvent: DownloadSleepingEvent,
 downloadSpeedEvent: DownloadSpeedEvent,
 downloadTaskEvent: DownloadTaskEvent,
@@ -155,6 +164,7 @@ exportCbzEvent: ExportCbzEvent,
 exportPdfEvent: ExportPdfEvent,
 logEvent: LogEvent
 }>({
+downloadShelfEvent: "download-shelf-event",
 downloadSleepingEvent: "download-sleeping-event",
 downloadSpeedEvent: "download-speed-event",
 downloadTaskEvent: "download-task-event",
@@ -259,8 +269,9 @@ additionalInfo: string;
  */
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; proxyMode: ProxyMode; proxyHost: string; proxyPort: number; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; useOriginalFilename: boolean; apiDomainMode: ApiDomainMode; customApiDomain: string }
+export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; proxyMode: ProxyMode; proxyHost: string; proxyPort: number; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; downloadAllFavoritesIntervalMs: number; useOriginalFilename: boolean; apiDomainMode: ApiDomainMode; customApiDomain: string }
 export type DownloadFormat = "Jpeg" | "Png" | "Webp" | "Original"
+export type DownloadShelfEvent = { event: "GettingFavorites" } | { event: "CreatingDownloadTask"; data: { current: number; total: number } } | { event: "End" }
 export type DownloadSleepingEvent = { comicId: number; remainingSec: number }
 export type DownloadSpeedEvent = { speed: string }
 export type DownloadTaskEvent = { state: DownloadTaskState; comic: Comic; downloadedImgCount: number; totalImgCount: number }

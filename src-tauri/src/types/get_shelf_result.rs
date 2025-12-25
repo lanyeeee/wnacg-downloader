@@ -11,21 +11,21 @@ use crate::{
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
-pub struct GetFavoriteResult {
-    pub comics: Vec<ComicInFavorite>,
+pub struct GetShelfResult {
+    pub comics: Vec<ComicInShelf>,
     pub current_page: i64,
     pub total_page: i64,
     pub shelf: Shelf,
     pub shelves: Vec<Shelf>,
 }
 
-impl GetFavoriteResult {
-    pub fn from_html(app: &AppHandle, html: &str) -> anyhow::Result<GetFavoriteResult> {
+impl GetShelfResult {
+    pub fn from_html(app: &AppHandle, html: &str) -> anyhow::Result<GetShelfResult> {
         let document = Html::parse_document(html);
 
         let mut comics = Vec::new();
         for comic_div in document.select(&Selector::parse(".asTB").to_anyhow()?) {
-            if let Ok(comic) = ComicInFavorite::from_div(app, &comic_div) {
+            if let Ok(comic) = ComicInShelf::from_div(app, &comic_div) {
                 comics.push(comic);
             }
         }
@@ -65,7 +65,7 @@ impl GetFavoriteResult {
 
         let shelves = Self::get_shelves(&document)?;
 
-        Ok(GetFavoriteResult {
+        Ok(GetShelfResult {
             comics,
             current_page,
             total_page,
@@ -132,14 +132,14 @@ impl GetFavoriteResult {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
-pub struct ComicInFavorite {
+pub struct ComicInShelf {
     /// 漫画id
     pub id: i64,
     /// 漫画标题
     pub title: String,
     /// 漫画封面链接
     pub cover: String,
-    /// 加入收藏的时间
+    /// 加入书架的时间
     /// 2025-01-04 16:04:34
     pub favorite_time: String,
     /// 这个漫画属于的书架
@@ -148,8 +148,8 @@ pub struct ComicInFavorite {
     pub is_downloaded: bool,
 }
 
-impl ComicInFavorite {
-    pub fn from_div(app: &AppHandle, div: &ElementRef) -> anyhow::Result<ComicInFavorite> {
+impl ComicInShelf {
+    pub fn from_div(app: &AppHandle, div: &ElementRef) -> anyhow::Result<ComicInShelf> {
         let (id, title) = Self::get_id_and_title(div)?;
 
         let div_html = div.html();
@@ -179,7 +179,7 @@ impl ComicInFavorite {
 
         let is_downloaded = app.get_config().read().download_dir.join(&title).exists();
 
-        Ok(ComicInFavorite {
+        Ok(ComicInShelf {
             id,
             title,
             cover,

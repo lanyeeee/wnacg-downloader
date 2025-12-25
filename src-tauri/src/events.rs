@@ -67,7 +67,7 @@ pub enum ExportCbzEvent {
 #[serde(tag = "event", content = "data")]
 pub enum DownloadShelfEvent {
     #[serde(rename_all = "camelCase")]
-    GettingFavorites,
+    GettingShelfComics,
 
     #[serde(rename_all = "camelCase")]
     CreatingDownloadTask { current: i64, total: i64 },

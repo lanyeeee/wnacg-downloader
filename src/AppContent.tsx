@@ -19,7 +19,7 @@ import AboutDialog from './dialogs/AboutDialog.tsx'
 import ProgressPane from './panes/ProgressPane/ProgressPane.tsx'
 import SearchPane from './panes/SearchPane.tsx'
 import ComicPane from './panes/ComicPane.tsx'
-import FavoritePane from './panes/FavoritePane.tsx'
+import ShelfPane from './panes/ShelfPane.tsx'
 import DownloadedPane from './panes/DownloadedPane/DownloadedPane.tsx'
 import { CurrentTabName } from './types.ts'
 import { PhClockCounterClockwise, PhGearSix, PhInfo, PhUser } from '@phosphor-icons/vue'
@@ -161,8 +161,8 @@ export default defineComponent({
               <NTabPane class="h-full overflow-auto p-0!" name="search" tab="漫画搜索" display-directive="show">
                 <SearchPane ref={searchPane} />
               </NTabPane>
-              <NTabPane class="h-full overflow-auto p-0!" name="favorite" tab="我的书架" display-directive="show">
-                <FavoritePane />
+              <NTabPane class="h-full overflow-auto p-0!" name="shelf" tab="我的书架" display-directive="show">
+                <ShelfPane />
               </NTabPane>
               <NTabPane class="h-full overflow-auto p-0!" name="downloaded" tab="本地库存" display-directive="show">
                 <DownloadedPane />

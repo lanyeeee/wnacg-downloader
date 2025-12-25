@@ -13,7 +13,7 @@ use crate::{
     export,
     extensions::{AnyhowErrorToStringChain, AppHandleExt},
     logger,
-    types::{Comic, GetFavoriteResult, SearchResult, UserProfile},
+    types::{Comic, GetShelfResult, SearchResult, UserProfile},
 };
 
 #[tauri::command]
@@ -151,19 +151,19 @@ pub async fn get_comic(app: AppHandle, id: i64) -> CommandResult<Comic> {
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_favorite(
+pub async fn get_shelf(
     app: AppHandle,
     shelf_id: i64,
     page_num: i64,
-) -> CommandResult<GetFavoriteResult> {
+) -> CommandResult<GetShelfResult> {
     let wnacg_client = app.get_wnacg_client();
 
-    let get_favorite_result = wnacg_client
-        .get_favorite(shelf_id, page_num)
+    let get_shelf_result = wnacg_client
+        .get_shelf(shelf_id, page_num)
         .await
-        .map_err(|err| CommandError::from("获取收藏的漫画失败", err))?;
-    tracing::debug!("获取收藏夹成功");
-    Ok(get_favorite_result)
+        .map_err(|err| CommandError::from("获取书架失败", err))?;
+    tracing::debug!("获取书架成功");
+    Ok(get_shelf_result)
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -339,17 +339,17 @@ pub async fn download_shelf(app: AppHandle, shelf_id: i64) -> CommandResult<()> 
     let wnacg_client = app.get_wnacg_client().inner().clone();
     let download_manager = app.get_download_manager();
 
-    let mut favorite_comics = Vec::new();
-    let _ = DownloadShelfEvent::GettingFavorites.emit(&app);
+    let mut shelf_comics = Vec::new();
+    let _ = DownloadShelfEvent::GettingShelfComics.emit(&app);
 
     // 获取书架第一页
     let first_page = wnacg_client
-        .get_favorite(shelf_id, 1)
+        .get_shelf(shelf_id, 1)
         .await
         .context("获取书架的第`1`页失败")
         .map_err(|err| CommandError::from("下载书架失败", err))?;
     // 先把书架的第一页放进去
-    favorite_comics.extend(first_page.comics);
+    shelf_comics.extend(first_page.comics);
     let page_count = first_page.total_page;
     // 获取书架剩余页
     let mut join_set = JoinSet::new();
@@ -357,27 +357,27 @@ pub async fn download_shelf(app: AppHandle, shelf_id: i64) -> CommandResult<()> 
         let pica_client = wnacg_client.clone();
         join_set.spawn(async move {
             let page = pica_client
-                .get_favorite(shelf_id, page)
+                .get_shelf(shelf_id, page)
                 .await
                 .context(format!("获取书架的第`{page}`页失败"))?;
             Ok::<_, anyhow::Error>(page)
         });
     }
     // 等待所有请求完成
-    while let Some(Ok(get_favorite_result)) = join_set.join_next().await {
+    while let Some(Ok(get_shelf_result)) = join_set.join_next().await {
         // 如果有请求失败，直接返回错误
-        let page = get_favorite_result.map_err(|err| CommandError::from("下载书架失败", err))?;
-        favorite_comics.extend(page.comics);
+        let page = get_shelf_result.map_err(|err| CommandError::from("下载书架失败", err))?;
+        shelf_comics.extend(page.comics);
     }
     // 至此，书架的漫画已经全部获取完毕
     // 去掉已下载的漫画
-    favorite_comics.retain(|comic| !comic.is_downloaded);
-    let total = favorite_comics.len() as i64;
+    shelf_comics.retain(|comic| !comic.is_downloaded);
+    let total = shelf_comics.len() as i64;
 
-    let interval_ms = config.read().download_all_favorites_interval_ms;
-    for (i, favorite_comic) in favorite_comics.into_iter().enumerate() {
-        let comic_title = &favorite_comic.title;
-        let comic_id = favorite_comic.id;
+    let interval_ms = config.read().download_shelf_interval_ms;
+    for (i, shelf_comic) in shelf_comics.into_iter().enumerate() {
+        let comic_title = &shelf_comic.title;
+        let comic_id = shelf_comic.id;
 
         let comic = match wnacg_client
             .get_comic(comic_id)

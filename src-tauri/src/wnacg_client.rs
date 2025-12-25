@@ -14,7 +14,7 @@ use tauri::AppHandle;
 use crate::{
     config::ProxyMode,
     extensions::{AnyhowErrorToStringChain, AppHandleExt},
-    types::{Comic, GetFavoriteResult, ImgList, SearchResult, UserProfile},
+    types::{Comic, GetShelfResult, ImgList, SearchResult, UserProfile},
 };
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -235,13 +235,9 @@ impl WnacgClient {
         Ok(comic)
     }
 
-    pub async fn get_favorite(
-        &self,
-        shelf_id: i64,
-        page_num: i64,
-    ) -> anyhow::Result<GetFavoriteResult> {
+    pub async fn get_shelf(&self, shelf_id: i64, page_num: i64) -> anyhow::Result<GetShelfResult> {
         let cookie = self.app.get_config().read().cookie.clone();
-        // 发送获取收藏夹请求
+        // 发送获取书架请求
         let api_domain = self.get_api_domain();
         let url = format!("https://{api_domain}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
         let request = self
@@ -257,10 +253,10 @@ impl WnacgClient {
         if status != StatusCode::OK {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // 尝试将body解析为GetFavoriteResult
-        let get_favorite_result = GetFavoriteResult::from_html(&self.app, &body)
-            .context(format!("将body解析为GetFavoriteResult失败: {body}"))?;
-        Ok(get_favorite_result)
+        // 尝试将body解析为GetShelfResult
+        let get_shelf_result = GetShelfResult::from_html(&self.app, &body)
+            .context(format!("将body解析为GetShelfResult失败: {body}"))?;
+        Ok(get_shelf_result)
     }
 
     pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {

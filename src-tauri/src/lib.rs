@@ -39,7 +39,7 @@ pub fn run() {
             search_by_keyword,
             search_by_tag,
             get_comic,
-            get_favorite,
+            get_shelf,
             download_shelf,
             create_download_task,
             pause_download_task,

@@ -43,7 +43,7 @@ export default defineComponent({
       type: String,
       required: false,
     },
-    getFavorite: {
+    getShelf: {
       type: Function as PropType<(shelfId: number, pageNum: number) => Promise<void>>,
       required: false,
     },
@@ -106,15 +106,15 @@ export default defineComponent({
               <span class="text-gray whitespace-pre-wrap">{props.comicAdditionalInfo}</span>
             )}
             {props.comicFavoriteTime && <span>收藏时间：{props.comicFavoriteTime}</span>}
-            {props.shelf && props.getFavorite && (
+            {props.shelf && props.getShelf && (
               <div>
                 <span>所属书架：</span>
                 {props.shelf.name !== '' && (
                   <NButton
                     size="tiny"
                     onClick={async () => {
-                      if (props.shelf !== undefined && props.getFavorite !== undefined) {
-                        await props.getFavorite(props.shelf.id, 1)
+                      if (props.shelf !== undefined && props.getShelf !== undefined) {
+                        await props.getShelf(props.shelf.id, 1)
                       }
                     }}>
                     {props.shelf.name}

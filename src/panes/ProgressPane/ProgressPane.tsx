@@ -35,8 +35,8 @@ export default defineComponent({
 
         if (state === 'Completed') {
           comic.isDownloaded = true
-          if (store.getFavoriteResult !== undefined) {
-            const completedResult = store.getFavoriteResult.comics.find(
+          if (store.getShelfResult !== undefined) {
+            const completedResult = store.getShelfResult.comics.find(
               (comic) => comic.id === downloadTaskEvent.comic.id,
             )
             if (completedResult !== undefined) {

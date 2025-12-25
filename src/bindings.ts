@@ -59,9 +59,9 @@ async getComic(id: number) : Promise<Result<Comic, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getFavorite(shelfId: number, pageNum: number) : Promise<Result<GetFavoriteResult, CommandError>> {
+async getShelf(shelfId: number, pageNum: number) : Promise<Result<GetShelfResult, CommandError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_favorite", { shelfId, pageNum }) };
+    return { status: "ok", data: await TAURI_INVOKE("get_shelf", { shelfId, pageNum }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -217,32 +217,6 @@ isDownloaded?: boolean | null;
  * 图片列表
  */
 imgList: ImgList }
-export type ComicInFavorite = { 
-/**
- * 漫画id
- */
-id: number; 
-/**
- * 漫画标题
- */
-title: string; 
-/**
- * 漫画封面链接
- */
-cover: string; 
-/**
- * 加入收藏的时间
- * 2025-01-04 16:04:34
- */
-favoriteTime: string; 
-/**
- * 这个漫画属于的书架
- */
-shelf: Shelf; 
-/**
- * 是否已下载
- */
-isDownloaded: boolean }
 export type ComicInSearch = { 
 /**
  * 漫画id
@@ -268,17 +242,43 @@ additionalInfo: string;
  * 是否已下载
  */
 isDownloaded: boolean }
+export type ComicInShelf = { 
+/**
+ * 漫画id
+ */
+id: number; 
+/**
+ * 漫画标题
+ */
+title: string; 
+/**
+ * 漫画封面链接
+ */
+cover: string; 
+/**
+ * 加入书架的时间
+ * 2025-01-04 16:04:34
+ */
+favoriteTime: string; 
+/**
+ * 这个漫画属于的书架
+ */
+shelf: Shelf; 
+/**
+ * 是否已下载
+ */
+isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; proxyMode: ProxyMode; proxyHost: string; proxyPort: number; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; downloadAllFavoritesIntervalMs: number; useOriginalFilename: boolean; apiDomainMode: ApiDomainMode; customApiDomain: string }
+export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; proxyMode: ProxyMode; proxyHost: string; proxyPort: number; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; downloadShelfIntervalMs: number; useOriginalFilename: boolean; apiDomainMode: ApiDomainMode; customApiDomain: string }
 export type DownloadFormat = "Jpeg" | "Png" | "Webp" | "Original"
-export type DownloadShelfEvent = { event: "GettingFavorites" } | { event: "CreatingDownloadTask"; data: { current: number; total: number } } | { event: "End" }
+export type DownloadShelfEvent = { event: "GettingShelfComics" } | { event: "CreatingDownloadTask"; data: { current: number; total: number } } | { event: "End" }
 export type DownloadSleepingEvent = { comicId: number; remainingSec: number }
 export type DownloadSpeedEvent = { speed: string }
 export type DownloadTaskEvent = { state: DownloadTaskState; comic: Comic; downloadedImgCount: number; totalImgCount: number }
 export type DownloadTaskState = "Pending" | "Downloading" | "Paused" | "Cancelled" | "Completed" | "Failed"
 export type ExportCbzEvent = { event: "Start"; data: { uuid: string; title: string } } | { event: "End"; data: { uuid: string } }
 export type ExportPdfEvent = { event: "Start"; data: { uuid: string; title: string } } | { event: "End"; data: { uuid: string } }
-export type GetFavoriteResult = { comics: ComicInFavorite[]; currentPage: number; totalPage: number; shelf: Shelf; shelves: Shelf[] }
+export type GetShelfResult = { comics: ComicInShelf[]; currentPage: number; totalPage: number; shelf: Shelf; shelves: Shelf[] }
 export type ImgInImgList = { 
 /**
  * 图片标题([01]、[001]，根据漫画总页数确定)

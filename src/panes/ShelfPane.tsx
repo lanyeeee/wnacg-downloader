@@ -3,6 +3,7 @@ import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
 import { NEmpty, NInputGroup, NInputGroupLabel, NPagination, NSelect } from 'naive-ui'
 import ComicCard from '../components/ComicCard.tsx'
+import DownloadShelfButton from '../components/DownloadShelfButton.tsx'
 
 export default defineComponent({
   name: 'ShelfPane',
@@ -79,6 +80,7 @@ export default defineComponent({
                 onUpdate:value={(shelfId) => getShelf(shelfId as number, 1)}
               />
             </NInputGroup>
+            <DownloadShelfButton shelfId={shelfIdSelected.value} />
           </div>
 
           <div class="flex flex-col overflow-auto">

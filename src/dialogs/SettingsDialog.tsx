@@ -222,6 +222,24 @@ export default defineComponent({
                   <NInputGroupLabel size="small">秒</NInputGroupLabel>
                 </NInputGroup>
               </div>
+
+              <NInputGroup>
+                <NInputGroupLabel size="small">下载书架时，每为一本漫画创建下载任务后休息</NInputGroupLabel>
+                <NInputNumber
+                  class="w-full"
+                  size="small"
+                  min={0}
+                  value={store.config?.downloadShelfIntervalMs}
+                  onUpdate:value={(value) => {
+                    if (store.config === undefined || value === null) {
+                      return
+                    }
+                    store.config.downloadShelfIntervalMs = value
+                  }}
+                  parse={(x: string) => Number(x)}
+                />
+                <NInputGroupLabel size="small">毫秒</NInputGroupLabel>
+              </NInputGroup>
             </div>
 
             <span class="font-bold mt-2">代理类型</span>

@@ -776,14 +776,19 @@ async fn save_img(
 
         let mut converted_data = Vec::new();
 
-        if target_format != ImageFormat::Jpeg
-            && target_format != ImageFormat::Png
-            && target_format != ImageFormat::WebP
-        {
-            return Err(anyhow!("不支持的图片格式: {:?}", target_format));
+        match target_format {
+            ImageFormat::Jpeg => img
+                .to_rgb8()
+                .write_to(&mut Cursor::new(&mut converted_data), target_format)
+                .context(format!("将`{src_format:?}`转换为`{target_format:?}`失败"))?,
+
+            ImageFormat::Png | ImageFormat::WebP => img
+                .to_rgba8()
+                .write_to(&mut Cursor::new(&mut converted_data), target_format)
+                .context(format!("将`{src_format:?}`转换为`{target_format:?}`失败"))?,
+
+            _ => return Err(anyhow!("不支持的图片格式: {target_format:?}")),
         }
-        img.write_to(&mut Cursor::new(&mut converted_data), target_format)
-            .context(format!("将`{src_format:?}`转换为`{target_format:?}`失败"))?;
 
         std::fs::write(&save_path, &converted_data)
             .context(format!("将图片数据写入`{}`失败", save_path.display()))?;

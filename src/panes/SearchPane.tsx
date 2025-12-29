@@ -5,6 +5,7 @@ import { commands } from '../bindings.ts'
 import ComicCard from '../components/ComicCard.tsx'
 import { PhArrowRight, PhMagnifyingGlass } from '@phosphor-icons/vue'
 import FloatLabelInput from '../components/FloatLabelInput.tsx'
+import { extractComicId } from '../utils.ts'
 
 export default defineComponent({
   name: 'SearchPane',
@@ -77,24 +78,8 @@ export default defineComponent({
       }
     }
 
-    function getComicIdFromComicIdInput(): number | undefined {
-      const comicIdString = searchByComicIdInput.value.trim()
-      // 如果是数字，直接返回
-      const comicId = parseInt(comicIdString)
-      if (!isNaN(comicId)) {
-        return comicId
-      }
-      // 否则需要从链接中提取
-      const regex = /aid-(\d+)/
-      const match = comicIdString.match(regex)
-      if (match === null || match[1] === null) {
-        return
-      }
-      return parseInt(match[1])
-    }
-
     async function pickComic() {
-      const comicId = getComicIdFromComicIdInput()
+      const comicId = extractComicId(searchByComicIdInput.value)
       if (comicId === undefined) {
         message.error('漫画ID格式错误，请输入漫画ID或漫画链接')
         return

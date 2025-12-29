@@ -269,7 +269,7 @@ shelf: Shelf;
  */
 isDownloaded: boolean }
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; proxyMode: ProxyMode; proxyHost: string; proxyPort: number; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; downloadShelfIntervalMs: number; useOriginalFilename: boolean; apiDomainMode: ApiDomainMode; customApiDomain: string }
+export type Config = { cookie: string; downloadDir: string; exportDir: string; enableFileLogger: boolean; downloadFormat: DownloadFormat; proxyMode: ProxyMode; proxyHost: string; proxyPort: number; comicConcurrency: number; comicDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; downloadShelfIntervalMs: number; batchDownloadIntervalMs: number; useOriginalFilename: boolean; apiDomainMode: ApiDomainMode; customApiDomain: string }
 export type DownloadFormat = "Jpeg" | "Png" | "Webp" | "Original"
 export type DownloadShelfEvent = { event: "GettingShelfComics" } | { event: "CreatingDownloadTask"; data: { current: number; total: number } } | { event: "End" }
 export type DownloadSleepingEvent = { comicId: number; remainingSec: number }

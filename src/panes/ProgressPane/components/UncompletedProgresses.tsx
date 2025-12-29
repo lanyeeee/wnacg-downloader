@@ -11,14 +11,18 @@ import {
   PhCloudArrowDown,
   PhClock,
   PhWarningCircle,
+  PhPlusCircle,
 } from '@phosphor-icons/vue'
-import { NDropdown, NProgress, ProgressProps, DropdownOption, NIcon } from 'naive-ui'
+import { NDropdown, NProgress, ProgressProps, DropdownOption, NIcon, NButton } from 'naive-ui'
 import styles from './UncompletedProgresses.module.css'
+import BatchDownloadDialog from '../../../dialogs/BatchDownloadDialog.tsx'
 
 export default defineComponent({
   name: 'UncompletedProgress',
   setup: function () {
     const store = useStore()
+
+    const batchDownloadDialogShowing = ref<boolean>(false)
 
     const selectedIds = ref<Set<number>>(new Set())
     const selectionAreaRef = ref<InstanceType<typeof SelectionArea>>()
@@ -171,46 +175,73 @@ export default defineComponent({
     }
 
     return () => (
-      <SelectionArea
-        ref={selectionAreaRef}
-        class={`${styles.selectionContainer} select-none overflow-auto h-full flex flex-col`}
-        options={{ selectables: '.selectable', features: { deselectOnBlur: true } }}
-        // 如果直接用 onContextmenu={showDropdown}，运行没问题，但是ts会报错
-        // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
-        {...{
-          onContextmenu: showDropdown,
-        }}
-        onMove={updateSelectedIds}
-        onStart={unselectAll}>
-        <div class="h-6 flex-shrink-0 items-center ml-auto">左键拖动进行框选，右键打开菜单，双击暂停/继续</div>
-        <div class="h-full select-none">
-          {uncompletedProgresses.value.map(([comicId, { state, comic, percentage, indicator }]) => (
-            <div
-              key={comicId}
-              ref={(el) => {
-                selectableRefs.value[comicId] = el as HTMLDivElement
-              }}
-              data-key={comicId}
-              class={[
-                'selectable p-3 mb-2 rounded-lg',
-                selectedIds.value.has(comicId) ? 'selected shadow-md' : 'hover:bg-gray-1',
-              ]}
-              onDblclick={() => handleProgressDoubleClick(state, comicId)}
-              onContextmenu={() => handleProgressContextMenu(comicId)}>
-              <DownloadProgress percentage={percentage} state={state} comic={comic} indicator={indicator} />
-            </div>
-          ))}
+      <div class="h-full flex flex-col gap-2 box-border">
+        <div class="flex items-center select-none pt-0.5 px-2">
+          <div class="animate-pulse text-sm text-blue-6 flex flex-col">
+            <div>左键拖动进行框选，右键打开菜单</div>
+            <div>双击暂停/继续</div>
+          </div>
+          <NButton
+            class="ml-auto"
+            size="small"
+            type="primary"
+            onClick={() => (batchDownloadDialogShowing.value = true)}>
+            {{
+              icon: () => (
+                <NIcon size={24}>
+                  <PhPlusCircle />
+                </NIcon>
+              ),
+              default: () => <div>批量下载</div>,
+            }}
+          </NButton>
         </div>
-        <NDropdown
-          placement="bottom-start"
-          trigger="manual"
-          x={dropdownX.value}
-          y={dropdownY.value}
-          options={dropdownOptions}
-          show={dropdownShowing.value}
-          on-clickoutside={() => (dropdownShowing.value = false)}
+
+        <SelectionArea
+          ref={selectionAreaRef}
+          class={`${styles.selectionContainer} select-none overflow-auto h-full flex flex-col`}
+          options={{ selectables: '.selectable', features: { deselectOnBlur: true } }}
+          // 如果直接用 onContextmenu={showDropdown}，运行没问题，但是ts会报错
+          // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
+          {...{
+            onContextmenu: showDropdown,
+          }}
+          onMove={updateSelectedIds}
+          onStart={unselectAll}>
+          <div class="h-full select-none">
+            {uncompletedProgresses.value.map(([comicId, { state, comic, percentage, indicator }]) => (
+              <div
+                key={comicId}
+                ref={(el) => {
+                  selectableRefs.value[comicId] = el as HTMLDivElement
+                }}
+                data-key={comicId}
+                class={[
+                  'selectable p-3 mb-2 rounded-lg',
+                  selectedIds.value.has(comicId) ? 'selected shadow-md' : 'hover:bg-gray-1',
+                ]}
+                onDblclick={() => handleProgressDoubleClick(state, comicId)}
+                onContextmenu={() => handleProgressContextMenu(comicId)}>
+                <DownloadProgress percentage={percentage} state={state} comic={comic} indicator={indicator} />
+              </div>
+            ))}
+          </div>
+          <NDropdown
+            placement="bottom-start"
+            trigger="manual"
+            x={dropdownX.value}
+            y={dropdownY.value}
+            options={dropdownOptions}
+            show={dropdownShowing.value}
+            on-clickoutside={() => (dropdownShowing.value = false)}
+          />
+        </SelectionArea>
+
+        <BatchDownloadDialog
+          showing={batchDownloadDialogShowing.value}
+          onUpdate:showing={(value) => (batchDownloadDialogShowing.value = value)}
         />
-      </SelectionArea>
+      </div>
     )
   },
 })

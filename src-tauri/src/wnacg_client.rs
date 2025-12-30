@@ -1,4 +1,4 @@
-use std::{io::Cursor, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
@@ -9,14 +9,13 @@ use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::{
-    config::Config,
-    types::{Comic, DownloadFormat, GetFavoriteResult, ImgList, SearchResult, UserProfile},
+    config::ProxyMode,
+    extensions::{AnyhowErrorToStringChain, AppHandleExt},
+    types::{Comic, GetShelfResult, ImgList, SearchResult, UserProfile},
 };
-
-const API_DOMAIN: &str = "www.wnacg03.cc";
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,15 +27,19 @@ pub struct LoginResp {
 #[derive(Clone)]
 pub struct WnacgClient {
     app: AppHandle,
-    api_client: ClientWithMiddleware,
-    img_client: ClientWithMiddleware,
+    api_client: Arc<RwLock<ClientWithMiddleware>>,
+    img_client: Arc<RwLock<ClientWithMiddleware>>,
     cover_client: Client,
 }
 
 impl WnacgClient {
     pub fn new(app: AppHandle) -> Self {
-        let api_client = create_api_client();
-        let img_client = create_img_client();
+        let api_client = create_api_client(&app);
+        let api_client = Arc::new(RwLock::new(api_client));
+
+        let img_client = create_img_client(&app);
+        let img_client = Arc::new(RwLock::new(img_client));
+
         let cover_client = Client::new();
         Self {
             app,
@@ -46,19 +49,27 @@ impl WnacgClient {
         }
     }
 
+    pub fn reload_client(&self) {
+        let api_client = create_api_client(&self.app);
+        *self.api_client.write() = api_client;
+        let img_client = create_img_client(&self.app);
+        *self.img_client.write() = img_client;
+    }
+
     pub async fn login(&self, username: &str, password: &str) -> anyhow::Result<String> {
         let form = json!({
             "login_name": username,
             "login_pass": password,
         });
         // 发送登录请求
-        let http_resp = self
+        let api_domain = self.get_api_domain();
+        let request = self
             .api_client
-            .post(format!("https://{API_DOMAIN}/users-check_login.html"))
-            .header("referer", format!("https://{API_DOMAIN}/"))
-            .form(&form)
-            .send()
-            .await?;
+            .read()
+            .post(format!("https://{api_domain}/users-check_login.html"))
+            .header("referer", format!("https://{api_domain}/"))
+            .form(&form);
+        let http_resp = request.send().await?;
         // 检查http响应状态码
         let status = http_resp.status();
         let headers = http_resp.headers().clone();
@@ -87,15 +98,16 @@ impl WnacgClient {
     }
 
     pub async fn get_user_profile(&self) -> anyhow::Result<UserProfile> {
-        let cookie = self.app.state::<RwLock<Config>>().read().cookie.clone();
+        let cookie = self.app.get_config().read().cookie.clone();
         // 发送获取用户信息请求
-        let http_resp = self
+        let api_domain = self.get_api_domain();
+        let request = self
             .api_client
-            .get(format!("https://{API_DOMAIN}/users.html"))
+            .read()
+            .get(format!("https://{api_domain}/users.html"))
             .header("cookie", cookie)
-            .header("referer", format!("https://{API_DOMAIN}/"))
-            .send()
-            .await?;
+            .header("referer", format!("https://{api_domain}/"));
+        let http_resp = request.send().await?;
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
@@ -120,13 +132,14 @@ impl WnacgClient {
             "s": "create_time_DESC",
             "p": page_num,
         });
-        let http_resp = self
+        let api_domain = self.get_api_domain();
+        let request = self
             .api_client
-            .get(format!("https://{API_DOMAIN}/search/index.php"))
-            .header("referer", format!("https://{API_DOMAIN}/"))
-            .query(&params)
-            .send()
-            .await?;
+            .read()
+            .get(format!("https://{api_domain}/search/index.php"))
+            .header("referer", format!("https://{api_domain}/"))
+            .query(&params);
+        let http_resp = request.send().await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
@@ -143,13 +156,14 @@ impl WnacgClient {
         tag_name: &str,
         page_num: i64,
     ) -> anyhow::Result<SearchResult> {
-        let url = format!("https://{API_DOMAIN}/albums-index-page-{page_num}-tag-{tag_name}.html");
-        let http_resp = self
+        let api_domain = self.get_api_domain();
+        let url = format!("https://{api_domain}/albums-index-page-{page_num}-tag-{tag_name}.html");
+        let request = self
             .api_client
+            .read()
             .get(url)
-            .header("referer", format!("https://{API_DOMAIN}/"))
-            .send()
-            .await?;
+            .header("referer", format!("https://{api_domain}/"));
+        let http_resp = request.send().await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
@@ -162,13 +176,14 @@ impl WnacgClient {
     }
 
     pub async fn get_img_list(&self, id: i64) -> anyhow::Result<ImgList> {
-        let url = format!("https://{API_DOMAIN}/photos-gallery-aid-{id}.html");
-        let http_resp = self
+        let api_domain = self.get_api_domain();
+        let url = format!("https://{api_domain}/photos-gallery-aid-{id}.html");
+        let request = self
             .api_client
+            .read()
             .get(url)
-            .header("referer", format!("https://{API_DOMAIN}/"))
-            .send()
-            .await?;
+            .header("referer", format!("https://{api_domain}/"));
+        let http_resp = request.send().await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
@@ -199,12 +214,13 @@ impl WnacgClient {
     }
 
     pub async fn get_comic(&self, id: i64) -> anyhow::Result<Comic> {
-        let http_resp = self
+        let api_domain = self.get_api_domain();
+        let request = self
             .api_client
-            .get(format!("https://{API_DOMAIN}/photos-index-aid-{id}.html"))
-            .header("referer", format!("https://{API_DOMAIN}/"))
-            .send()
-            .await?;
+            .read()
+            .get(format!("https://{api_domain}/photos-index-aid-{id}.html"))
+            .header("referer", format!("https://{api_domain}/"));
+        let http_resp = request.send().await?;
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
@@ -219,103 +235,61 @@ impl WnacgClient {
         Ok(comic)
     }
 
-    pub async fn get_favorite(
-        &self,
-        shelf_id: i64,
-        page_num: i64,
-    ) -> anyhow::Result<GetFavoriteResult> {
-        let cookie = self.app.state::<RwLock<Config>>().read().cookie.clone();
-        // 发送获取收藏夹请求
-        let url = format!("https://{API_DOMAIN}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
-        let http_resp = self
+    pub async fn get_shelf(&self, shelf_id: i64, page_num: i64) -> anyhow::Result<GetShelfResult> {
+        let cookie = self.app.get_config().read().cookie.clone();
+        // 发送获取书架请求
+        let api_domain = self.get_api_domain();
+        let url = format!("https://{api_domain}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
+        let request = self
             .api_client
+            .read()
             .get(url)
             .header("cookie", cookie)
-            .header("referer", format!("https://{API_DOMAIN}/"))
-            .send()
-            .await?;
+            .header("referer", format!("https://{api_domain}/"));
+        let http_resp = request.send().await?;
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // 尝试将body解析为GetFavoriteResult
-        let get_favorite_result = GetFavoriteResult::from_html(&self.app, &body)
-            .context(format!("将body解析为GetFavoriteResult失败: {body}"))?;
-        Ok(get_favorite_result)
+        // 尝试将body解析为GetShelfResult
+        let get_shelf_result = GetShelfResult::from_html(&self.app, &body)
+            .context(format!("将body解析为GetShelfResult失败: {body}"))?;
+        Ok(get_shelf_result)
     }
 
     pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {
-        // 发送下载图片请求
-        let http_resp = self
+        // 发送下载图片请
+        let api_domain = self.get_api_domain();
+        let request = self
             .img_client
+            .read()
             .get(url)
-            .header("referer", format!("https://{API_DOMAIN}/"))
-            .send()
-            .await?;
+            .header("referer", format!("https://{api_domain}/"));
+        let http_resp = request.send().await?;
         // 检查http响应状态码
         let status = http_resp.status();
         if status == StatusCode::TOO_MANY_REQUESTS {
-            return Err(anyhow!("IP被封，请在更多设置中减少并发数或设置下载完成后的休息时间，以此降低下载速度，稍后再试"));
+            return Err(anyhow!("IP被封，请在配置中减少并发数或设置下载完成后的休息时间，以此降低下载速度，稍后再试"));
         } else if status != StatusCode::OK {
             let body = http_resp.text().await?;
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // 获取 resp headers 的 content-type 字段
-        let content_type = http_resp
-            .headers()
-            .get("content-type")
-            .ok_or(anyhow!("响应中没有content-type字段"))?
-            .to_str()
-            .context("响应中的content-type字段不是utf-8字符串")?
-            .to_string();
-        // 获取图片数据
         let image_data = http_resp.bytes().await?;
-        // 确定原始图片格式
-        let original_format = match content_type.as_str() {
-            "image/jpeg" => ImageFormat::Jpeg,
-            "image/png" => ImageFormat::Png,
-            "image/webp" => ImageFormat::WebP,
-            _ => return Err(anyhow!("原图出现了意料之外的格式: {content_type}")),
-        };
-        // 确定目标格式
-        let download_format = self.app.state::<RwLock<Config>>().read().download_format;
-        let target_format = match download_format {
-            DownloadFormat::Jpeg => ImageFormat::Jpeg,
-            DownloadFormat::Png => ImageFormat::Png,
-            DownloadFormat::Webp => ImageFormat::WebP,
-            DownloadFormat::Original => original_format,
-        };
-        // 如果原始格式与目标格式相同，直接返回
-        if original_format == target_format {
-            return Ok((image_data, original_format));
-        }
-        // 否则需要将图片转换为目标格式
-        let img =
-            image::load_from_memory(&image_data).context("将图片数据转换为DynamicImage失败")?;
-        let mut converted_data = Vec::new();
-        match target_format {
-            ImageFormat::Jpeg => img
-                .to_rgb8()
-                .write_to(&mut Cursor::new(&mut converted_data), target_format),
-            ImageFormat::Png | ImageFormat::WebP => img
-                .to_rgba8()
-                .write_to(&mut Cursor::new(&mut converted_data), target_format),
-            _ => return Err(anyhow!("这里不应该出现目标格式`{target_format:?}`")),
-        }
-        .context(format!(
-            "将`{original_format:?}`转换为`{target_format:?}`失败"
-        ))?;
 
-        Ok((Bytes::from(converted_data), target_format))
+        let format = image::guess_format(&image_data)
+            .context("无法从图片数据中猜测出图片格式，可能图片数据不完整或已损坏")?;
+
+        Ok((image_data, format))
     }
 
     pub async fn get_cover_data(&self, cover_url: &str) -> anyhow::Result<Bytes> {
+        let api_domain = self.get_api_domain();
         let http_resp = self
             .cover_client
             .get(cover_url)
-            .header("referer", format!("https://{API_DOMAIN}/"))
+            .header("referer", format!("https://{api_domain}/"))
             .send()
             .await?;
         let status = http_resp.status();
@@ -326,9 +300,13 @@ impl WnacgClient {
         let cover_data = http_resp.bytes().await?;
         Ok(cover_data)
     }
+
+    fn get_api_domain(&self) -> String {
+        self.app.get_config().read().get_api_domain()
+    }
 }
 
-fn create_api_client() -> ClientWithMiddleware {
+fn create_api_client(app: &AppHandle) -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder()
         .base(1) // 指数为1，保证重试间隔为1秒不变
         .jitter(Jitter::Bounded) // 重试间隔在1秒左右波动
@@ -337,6 +315,7 @@ fn create_api_client() -> ClientWithMiddleware {
     let client = reqwest::ClientBuilder::new()
         .use_rustls_tls()
         .timeout(Duration::from_secs(3)) // 每个请求超过3秒就超时
+        .set_proxy(app, "api_client")
         .build()
         .unwrap();
 
@@ -345,15 +324,46 @@ fn create_api_client() -> ClientWithMiddleware {
         .build()
 }
 
-fn create_img_client() -> ClientWithMiddleware {
+fn create_img_client(app: &AppHandle) -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
 
     let client = reqwest::ClientBuilder::new()
         .use_rustls_tls()
+        .set_proxy(app, "img_client")
         .build()
         .unwrap();
 
     reqwest_middleware::ClientBuilder::new(client)
         .with(RetryTransientMiddleware::new_with_policy(retry_policy))
         .build()
+}
+
+trait ClientBuilderExt {
+    fn set_proxy(self, app: &AppHandle, client_name: &str) -> Self;
+}
+
+impl ClientBuilderExt for reqwest::ClientBuilder {
+    fn set_proxy(self, app: &AppHandle, client_name: &str) -> reqwest::ClientBuilder {
+        let proxy_mode = app.get_config().read().proxy_mode;
+        match proxy_mode {
+            ProxyMode::System => self,
+            ProxyMode::NoProxy => self.no_proxy(),
+            ProxyMode::Custom => {
+                let config = app.get_config().inner().read();
+                let proxy_host = &config.proxy_host;
+                let proxy_port = &config.proxy_port;
+                let proxy_url = format!("http://{proxy_host}:{proxy_port}");
+
+                match reqwest::Proxy::all(&proxy_url).map_err(anyhow::Error::from) {
+                    Ok(proxy) => self.proxy(proxy),
+                    Err(err) => {
+                        let err_title = format!("{client_name}将`{proxy_url}`设为代理失败，将直连");
+                        let string_chain = err.to_string_chain();
+                        tracing::error!(err_title, message = string_chain);
+                        self.no_proxy()
+                    }
+                }
+            }
+        }
+    }
 }

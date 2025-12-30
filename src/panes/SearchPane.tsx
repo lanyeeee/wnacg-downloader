@@ -1,27 +1,26 @@
-import { computed, defineComponent, ref, watch } from 'vue'
-import { Input, Button, Pagination, message } from 'ant-design-vue'
+import { defineComponent, ref, watch } from 'vue'
+import { NButton, NPagination, useMessage, NInputGroup, NIcon } from 'naive-ui'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
 import ComicCard from '../components/ComicCard.tsx'
+import { PhArrowRight, PhMagnifyingGlass } from '@phosphor-icons/vue'
+import FloatLabelInput from '../components/FloatLabelInput.tsx'
+import { extractComicId } from '../utils.ts'
 
 export default defineComponent({
   name: 'SearchPane',
   setup() {
-    const PAGE_SIZE = 24
     const store = useStore()
 
+    const message = useMessage()
+
     const searchByKeywordInput = ref<string>('')
+    const searchingByKeyword = ref<boolean>(false)
     const searchByTagInput = ref<string>('')
+    const searchingByTag = ref<boolean>(false)
     const searchByComicIdInput = ref<string>('')
     const currentPage = ref<number>(1)
     const comicCardContainer = ref<HTMLElement>()
-
-    const totalForPagination = computed(() => {
-      if (store.searchResult === undefined) {
-        return 1
-      }
-      return store.searchResult.totalPage * PAGE_SIZE
-    })
 
     watch(
       () => store.searchResult,
@@ -33,30 +32,38 @@ export default defineComponent({
     )
 
     async function searchByKeyword(keyword: string, pageNum: number) {
-      console.log(keyword, pageNum)
       searchByKeywordInput.value = keyword
       currentPage.value = pageNum
+
+      searchingByKeyword.value = true
+
       const result = await commands.searchByKeyword(keyword, pageNum)
       if (result.status === 'error') {
+        searchingByKeyword.value = false
         console.error(result.error)
         return
       }
+
+      searchingByKeyword.value = false
       store.searchResult = result.data
-      console.log(result.data)
     }
 
     async function searchByTag(tagName: string, pageNum: number) {
-      console.log(tagName, pageNum)
       searchByTagInput.value = tagName
       currentPage.value = pageNum
+
+      searchingByTag.value = true
+
       const result = await commands.searchByTag(tagName, pageNum)
       if (result.status === 'error') {
+        searchingByTag.value = false
         console.error(result.error)
         return
       }
+
+      searchingByTag.value = false
       store.searchResult = result.data
       store.currentTabName = 'search'
-      console.log(result.data)
     }
 
     async function onPageChange(page: number) {
@@ -71,26 +78,8 @@ export default defineComponent({
       }
     }
 
-    function getComicIdFromComicIdInput(): number | undefined {
-      const comicIdString = searchByComicIdInput.value.trim()
-      // 如果是数字，直接返回
-      const comicId = parseInt(comicIdString)
-      if (!isNaN(comicId)) {
-        console.log(comicId)
-        return comicId
-      }
-      // 否则需要从链接中提取
-      const regex = /aid-(\d+)/
-      const match = comicIdString.match(regex)
-      if (match === null || match[1] === null) {
-        return
-      }
-      console.log(match)
-      return parseInt(match[1])
-    }
-
     async function pickComic() {
-      const comicId = getComicIdFromComicIdInput()
+      const comicId = extractComicId(searchByComicIdInput.value)
       if (comicId === undefined) {
         message.error('漫画ID格式错误，请输入漫画ID或漫画链接')
         return
@@ -107,75 +96,118 @@ export default defineComponent({
     }
 
     const render = () => (
-      <div class="h-full flex flex-col">
-        <div class="flex">
-          <Input
-            addonBefore="关键词"
+      <div class="h-full flex flex-col gap-2">
+        <NInputGroup class="box-border px-2 pt-2">
+          <FloatLabelInput
             size="small"
+            label="关键词"
             value={searchByKeywordInput.value}
             onUpdate:value={(value) => (searchByKeywordInput.value = value)}
-            allowClear
-            onPressEnter={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}
-          />
-          <Button size="small" onClick={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}>
-            搜索
-          </Button>
-        </div>
-        <div class="flex">
-          <Input
-            v-slots={{
-              addonBefore: () => <div class="mx-1.75">标签</div>,
+            clearable
+            {...{
+              onKeydown: async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  await searchByKeyword(searchByKeywordInput.value.trim(), 1)
+                }
+              },
             }}
+          />
+          <NButton
+            loading={searchingByKeyword.value}
+            type="primary"
             size="small"
+            class="w-15%"
+            onClick={() => searchByKeyword(searchByKeywordInput.value.trim(), 1)}>
+            {{
+              icon: () => (
+                <NIcon size={22}>
+                  <PhMagnifyingGlass />
+                </NIcon>
+              ),
+            }}
+          </NButton>
+        </NInputGroup>
+        <NInputGroup class="box-border px-2">
+          <FloatLabelInput
+            size="small"
+            label="标签"
             value={searchByTagInput.value}
             onUpdate:value={(value) => (searchByTagInput.value = value)}
-            allowClear
-            onPressEnter={() => searchByTag(searchByTagInput.value.trim(), 1)}
+            clearable
+            {...{
+              onKeydown: async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  await searchByTag(searchByTagInput.value.trim(), 1)
+                }
+              },
+            }}
           />
-          <Button size="small" onClick={() => searchByTag(searchByTagInput.value.trim(), 1)}>
-            搜索
-          </Button>
-        </div>
-        <div class="flex">
-          <Input
-            addonBefore="漫画ID"
-            placeholder="链接也行"
+          <NButton
+            loading={searchingByTag.value}
+            type="primary"
             size="small"
+            class="w-15%"
+            onClick={() => searchByTag(searchByTagInput.value.trim(), 1)}>
+            {{
+              icon: () => (
+                <NIcon size={22}>
+                  <PhMagnifyingGlass />
+                </NIcon>
+              ),
+            }}
+          </NButton>
+        </NInputGroup>
+        <NInputGroup class="box-border px-2">
+          <FloatLabelInput
+            size="small"
+            label="漫画ID (链接也行)"
             value={searchByComicIdInput.value}
             onUpdate:value={(value) => (searchByComicIdInput.value = value)}
-            allowClear
-            onPressEnter={pickComic}
+            clearable
+            {...{
+              onKeydown: async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  await pickComic()
+                }
+              },
+            }}
           />
-          <Button size="small" onClick={async () => await pickComic()}>
-            直达
-          </Button>
-        </div>
+          <NButton type="primary" size="small" class="w-15%" onClick={() => pickComic()}>
+            {{
+              icon: () => (
+                <NIcon size={22}>
+                  <PhArrowRight />
+                </NIcon>
+              ),
+            }}
+          </NButton>
+        </NInputGroup>
+
         {store.searchResult && (
-          <div class="flex flex-col overflow-auto">
-            <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">
-              {store.searchResult.comics.map((comic) => (
-                <ComicCard
-                  key={comic.id}
-                  comicId={comic.id}
-                  comicTitle={comic.title}
-                  comicTitleHtml={comic.titleHtml}
-                  comicCover={comic.cover}
-                  comicAdditionalInfo={comic.additionalInfo}
-                  comicDownloaded={comic.isDownloaded}
-                />
-              ))}
+          <>
+            <div class="flex flex-col overflow-auto">
+              <div ref={comicCardContainer} class="flex flex-col gap-row-2 overflow-auto p-2">
+                {store.searchResult.comics.map((comic) => (
+                  <ComicCard
+                    key={comic.id}
+                    comicId={comic.id}
+                    comicTitle={comic.title}
+                    comicTitleHtml={comic.titleHtml}
+                    comicCover={comic.cover}
+                    comicAdditionalInfo={comic.additionalInfo}
+                    comicDownloaded={comic.isDownloaded}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+            <NPagination
+              class="p-2 mt-auto"
+              page={currentPage.value}
+              pageCount={store.searchResult.totalPage}
+              onUpdate:page={(page) => onPageChange(page)}
+            />
+          </>
         )}
-        <Pagination
-          class="p-2 mt-auto"
-          current={currentPage.value}
-          pageSize={PAGE_SIZE}
-          total={totalForPagination.value}
-          showSizeChanger={false}
-          simple
-          onUpdate:current={async (pageNum) => await onPageChange(pageNum)}
-        />
       </div>
     )
 

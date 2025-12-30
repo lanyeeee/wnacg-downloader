@@ -4,7 +4,7 @@ use yaserde::{YaDeserialize, YaSerialize};
 
 use super::Comic;
 
-/// https://wiki.kavitareader.com/guides/metadata/comics/
+/// <https://wiki.kavitareader.com/guides/metadata/comics/>
 #[derive(
     Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type, YaSerialize, YaDeserialize,
 )]

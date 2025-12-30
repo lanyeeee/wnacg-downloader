@@ -1,5 +1,5 @@
 import { computed, defineComponent, PropType } from 'vue'
-import { Button, ButtonProps } from 'ant-design-vue'
+import { NButton, ButtonProps } from 'naive-ui'
 import { useStore } from '../store.ts'
 import { ProgressData } from '../types.ts'
 import { commands } from '../bindings.ts'
@@ -17,7 +17,7 @@ export default defineComponent({
     },
     size: {
       type: String as PropType<ButtonProps['size']>,
-      default: 'middle',
+      default: 'medium',
     },
     comicId: {
       type: Number,
@@ -77,14 +77,14 @@ export default defineComponent({
     }
 
     return () => (
-      <Button
+      <NButton
         class={props.class}
         type={props.type}
         size={props.size}
         onClick={handleButtonClick}
         disabled={buttonDisabled.value}>
         {buttonIndicator.value}
-      </Button>
+      </NButton>
     )
   },
 })

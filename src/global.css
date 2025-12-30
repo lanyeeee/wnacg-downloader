@@ -1,0 +1,19 @@
+body {
+    @apply m-0;
+}
+
+.selection-area {
+    @apply bg-[rgba(46,115,252,0.5)];
+}
+
+.n-notification-main__header {
+    @apply break-words;
+}
+
+.n-tabs-pane-wrapper {
+    @apply h-full;
+}
+
+.n-tabs-nav {
+  @apply px-2;
+}

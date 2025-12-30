@@ -1,0 +1,18 @@
+.floatLabelInput {
+  :global(.n-input-wrapper) {
+    @apply overflow-visible flex items-center;
+  }
+
+  :global(.n-input__prefix) {
+    @apply absolute leading-none z-2;
+  }
+
+  :global(.n-input__input-el) {
+    @apply relative z-3;
+  }
+}
+
+:global(.n-input--focus) .floatLabel,
+:global(.n-input:hover) .floatLabel {
+  color: var(--primary-color);
+}

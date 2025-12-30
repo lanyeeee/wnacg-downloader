@@ -1,8 +1,10 @@
 import { computed, defineComponent, onMounted, PropType } from 'vue'
-import { useStore } from '../store.ts'
-import { Comic, commands } from '../bindings.ts'
-import { Button, Card } from 'ant-design-vue'
+import { useStore } from '../../../store.ts'
+import { Comic, commands } from '../../../bindings.ts'
+import { NCard } from 'naive-ui'
 import { path } from '@tauri-apps/api'
+import { PhFilePdf, PhFileZip, PhFolderOpen } from '@phosphor-icons/vue'
+import IconButton from '../../../components/IconButton.tsx'
 
 export default defineComponent({
   name: 'DownloadedComicCard',
@@ -60,7 +62,7 @@ export default defineComponent({
     }
 
     return () => (
-      <Card hoverable={true} class="cursor-auto rounded-none" bodyStyle={{ padding: '0.25rem' }}>
+      <NCard hoverable content-style="padding: 0.25rem;">
         <div class="flex h-full">
           <img
             class="w-24 object-contain mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
@@ -70,26 +72,26 @@ export default defineComponent({
           />
           <div class="flex flex-col w-full">
             <span
-              class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
+              class="font-bold text-lg line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
               v-html={props.comic.title}
               onClick={pickComic}
             />
             <span>分类：{props.comic.category}</span>
             <span>页数：{props.comic.imageCount}P</span>
             <div class="flex mt-auto gap-col-2">
-              <Button size="small" onClick={showComicDirInFileManager}>
-                打开目录
-              </Button>
-              <Button class="ml-auto" size="small" onClick={exportPdf}>
-                导出pdf
-              </Button>
-              <Button size="small" onClick={exportCbz}>
-                导出cbz
-              </Button>
+              <IconButton title="打开下载目录" onClick={showComicDirInFileManager}>
+                <PhFolderOpen size={24} />
+              </IconButton>
+              <IconButton class="ml-auto" title="导出cbz" onClick={exportCbz}>
+                <PhFileZip size={24} />
+              </IconButton>
+              <IconButton title="导出pdf" onClick={exportPdf}>
+                <PhFilePdf size={24} />
+              </IconButton>
             </div>
           </div>
         </div>
-      </Card>
+      </NCard>
     )
   },
 })

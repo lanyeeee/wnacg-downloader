@@ -6,6 +6,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::types::DownloadFormat;
 
+const DEFAULT_API_DOMAIN: &str = "www.wn06.ru";
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
@@ -14,10 +16,18 @@ pub struct Config {
     pub export_dir: PathBuf,
     pub enable_file_logger: bool,
     pub download_format: DownloadFormat,
+    pub proxy_mode: ProxyMode,
+    pub proxy_host: String,
+    pub proxy_port: u16,
     pub comic_concurrency: usize,
     pub comic_download_interval_sec: u64,
     pub img_concurrency: usize,
     pub img_download_interval_sec: u64,
+    pub download_shelf_interval_ms: u64,
+    pub batch_download_interval_ms: u64,
+    pub use_original_filename: bool,
+    pub api_domain_mode: ApiDomainMode,
+    pub custom_api_domain: String,
 }
 
 impl Config {
@@ -49,6 +59,14 @@ impl Config {
         Ok(())
     }
 
+    pub fn get_api_domain(&self) -> String {
+        if self.api_domain_mode == ApiDomainMode::Custom {
+            self.custom_api_domain.clone()
+        } else {
+            DEFAULT_API_DOMAIN.to_string()
+        }
+    }
+
     fn merge_config(config_string: &str, app_data_dir: &Path) -> Config {
         let Ok(mut json_value) = serde_json::from_str::<serde_json::Value>(config_string) else {
             return Config::default(app_data_dir);
@@ -78,10 +96,33 @@ impl Config {
             export_dir: app_data_dir.join("漫画导出"),
             enable_file_logger: true,
             download_format: DownloadFormat::Jpeg,
+            proxy_mode: ProxyMode::System,
+            proxy_host: "127.0.0.1".to_string(),
+            proxy_port: 7890,
             comic_concurrency: 2,
             comic_download_interval_sec: 0,
             img_concurrency: 10,
             img_download_interval_sec: 1,
+            download_shelf_interval_ms: 100,
+            batch_download_interval_ms: 100,
+            use_original_filename: false,
+            api_domain_mode: ApiDomainMode::Default,
+            custom_api_domain: DEFAULT_API_DOMAIN.to_string(),
         }
     }
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+pub enum ProxyMode {
+    #[default]
+    System,
+    NoProxy,
+    Custom,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub enum ApiDomainMode {
+    #[default]
+    Default,
+    Custom,
 }

@@ -1,21 +1,22 @@
 import { defineComponent, onMounted, ref } from 'vue'
-import { useStore } from '../store.ts'
-import { commands, events } from '../bindings.ts'
+import { useStore } from '../../store.ts'
+import { commands, events } from '../../bindings.ts'
 import { open } from '@tauri-apps/plugin-dialog'
-import { Button, Input, Tabs } from 'ant-design-vue'
-import UncompletedProgresses from '../components/UncompletedProgresses.tsx'
-import CompletedProgress from '../components/CompletedProgress.tsx'
-import styles from '../styles/DownloadingPane.module.css'
-import SettingsDialog from '../components/SettingsDialog.tsx'
+import { NButton, NIcon, NInput, NInputGroup, NInputGroupLabel, NTabPane, NTabs } from 'naive-ui'
+import UncompletedProgresses from './components/UncompletedProgresses.tsx'
+import CompletedProgress from './components/CompletedProgress.tsx'
+import styles from './ProgressPane.module.css'
+import { PhFolderOpen } from '@phosphor-icons/vue'
 
 export default defineComponent({
-  name: 'DownloadingPane',
+  name: 'ProgressPane',
   setup() {
     const store = useStore()
 
-    const settingsShowing = ref<boolean>(false)
-
     const downloadSpeed = ref<string>('')
+
+    type TabName = 'uncompleted' | 'completed'
+    const tabName = ref<TabName>('uncompleted')
 
     onMounted(async () => {
       await events.downloadSpeedEvent.listen(async ({ payload: { speed } }) => {
@@ -34,8 +35,8 @@ export default defineComponent({
 
         if (state === 'Completed') {
           comic.isDownloaded = true
-          if (store.getFavoriteResult !== undefined) {
-            const completedResult = store.getFavoriteResult.comics.find(
+          if (store.getShelfResult !== undefined) {
+            const completedResult = store.getShelfResult.comics.find(
               (comic) => comic.id === downloadTaskEvent.comic.id,
             )
             if (completedResult !== undefined) {
@@ -100,47 +101,56 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="flex flex-col h-full">
-        <div class="flex h-9.5 items-center">
-          <span class="text-lg font-bold">下载列表</span>
-          <span class="ml-auto">下载速度: {downloadSpeed.value}</span>
+      <div class="flex flex-col h-full overflow-auto">
+        <div class="flex box-border px-2 pt-2">
+          <NInputGroup>
+            <NInputGroupLabel size="small">下载目录</NInputGroupLabel>
+            <NInput
+              size="small"
+              readonly
+              value={store.config?.downloadDir}
+              onUpdate:value={(value) => {
+                if (store.config) {
+                  store.config.downloadDir = value
+                }
+              }}
+              // 如果直接用 onClick={selectDownloadDir}，运行没问题，但是ts会报错
+              // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
+              {...{
+                onClick: selectDownloadDir,
+              }}
+            />
+            <NButton class="w-10" size="small" onClick={showDownloadDirInFileManager}>
+              {{
+                icon: () => (
+                  <NIcon size={20}>
+                    <PhFolderOpen />
+                  </NIcon>
+                ),
+              }}
+            </NButton>
+          </NInputGroup>
         </div>
-        <div class="flex">
-          <Input
-            size="small"
-            addonBefore="下载目录"
-            readonly
-            value={store.config?.downloadDir}
-            onUpdate:value={(value) => {
-              if (store.config) {
-                store.config.downloadDir = value
-              }
-            }}
-            // 如果直接用 onClick={selectDownloadDir}，运行没问题，但是ts会报错
-            // 在vue里用jsx总有类似的狗屎问题 https://github.com/vuejs/babel-plugin-jsx/issues/555
-            {...{
-              onClick: selectDownloadDir,
-            }}
-          />
-          <Button size="small" onClick={showDownloadDirInFileManager}>
-            打开目录
-          </Button>{' '}
-          <Button size="small" onClick={() => (settingsShowing.value = true)}>
-            更多设置
-          </Button>
-        </div>
-        <Tabs size="small" class={`${styles.tabs} flex-1 overflow-hidden`}>
-          <Tabs.TabPane key="uncompleted" tab="未完成" class="h-full overflow-auto">
-            <UncompletedProgresses />
-          </Tabs.TabPane>
-          <Tabs.TabPane key="completed" tab="已完成" class="h-full overflow-auto">
-            <CompletedProgress />
-          </Tabs.TabPane>
-        </Tabs>
-        <SettingsDialog
-          showing={settingsShowing.value}
-          onUpdate:showing={(showing) => (settingsShowing.value = showing)}
-        />
+        <NTabs
+          size="small"
+          type="line"
+          value={tabName.value}
+          onUpdate:value={(value) => (tabName.value = value as TabName)}
+          class={[`${styles.progressesTabs}`, 'flex-1 overflow-hidden pt-2']}>
+          {{
+            default: () => (
+              <>
+                <NTabPane class="h-full p-0! overflow-auto" name="uncompleted" tab="未完成">
+                  <UncompletedProgresses />
+                </NTabPane>
+                <NTabPane class="h-full p-0! overflow-auto" name="completed" tab="已完成">
+                  <CompletedProgress />
+                </NTabPane>
+              </>
+            ),
+            suffix: () => <span class="whitespace-nowrap text-ellipsis overflow-hidden">{downloadSpeed.value}</span>,
+          }}
+        </NTabs>
       </div>
     )
   },

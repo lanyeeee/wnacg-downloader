@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsStr,
     io::{Read, Write},
     path::{Path, PathBuf},
 };
@@ -9,14 +8,13 @@ use lopdf::{
     content::{Content, Operation},
     dictionary, Document, Object, Stream,
 };
-use parking_lot::RwLock;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_specta::Event;
 use zip::{write::SimpleFileOptions, ZipWriter};
 
 use crate::{
-    config::Config,
     events::{ExportCbzEvent, ExportPdfEvent},
+    extensions::{AppHandleExt, PathIsImg},
     types::{Comic, ComicInfo},
 };
 
@@ -60,19 +58,24 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
     let comic_info_xml = yaserde::ser::to_string_with_config(&comic_info, &cfg)
         .map_err(|err_msg| anyhow!("`{comic_title}`序列化`ComicInfo.xml`失败: {err_msg}"))?;
     // 保证导出目录存在
-    std::fs::create_dir_all(&comic_export_dir)
-        .context(format!("`{comic_title}`创建目录`{comic_export_dir:?}`失败"))?;
+    std::fs::create_dir_all(&comic_export_dir).context(format!(
+        "`{comic_title}`创建目录`{}`失败",
+        comic_export_dir.display()
+    ))?;
     // 创建cbz文件
     let extension = Archive::Cbz.extension();
     let zip_path = comic_export_dir.join(format!("{comic_title}.{extension}"));
-    let zip_file = std::fs::File::create(&zip_path)
-        .context(format!("`{comic_title}`创建文件`{zip_path:?}`失败"))?;
+    let zip_file = std::fs::File::create(&zip_path).context(format!(
+        "`{comic_title}`创建文件`{}`失败",
+        zip_path.display()
+    ))?;
     let mut zip_writer = ZipWriter::new(zip_file);
     // 把ComicInfo.xml写入cbz
     zip_writer
         .start_file("ComicInfo.xml", SimpleFileOptions::default())
         .context(format!(
-            "`{comic_title}在`{zip_path:?}`创建`ComicInfo.xml`失败"
+            "`{comic_title}在`{}`创建`ComicInfo.xml`失败",
+            zip_path.display()
         ))?;
     zip_writer
         .write_all(comic_info_xml.as_bytes())
@@ -80,11 +83,12 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
     // 遍历下载目录，将文件写入cbz
     let image_paths = std::fs::read_dir(&comic_download_dir)
         .context(format!(
-            "`{comic_title}`读取目录`{comic_download_dir:?}`失败"
+            "`{comic_title}`读取目录`{}`失败",
+            comic_download_dir.display()
         ))?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
-        .filter(|path| path.extension() != Some(OsStr::new("json"))); // 过滤掉元数据.json文件;
+        .filter(|path| path.is_img());
     for image_path in image_paths {
         if !image_path.is_file() {
             continue;
@@ -98,18 +102,21 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         zip_writer
             .start_file(&filename, SimpleFileOptions::default())
             .context(format!(
-                "`{comic_title}在`{zip_path:?}`创建`{filename:?}`失败"
+                "`{comic_title}在`{}`创建`{filename:?}`失败",
+                zip_path.display()
             ))?;
-        let mut file =
-            std::fs::File::open(&image_path).context(format!("打开`{image_path:?}`失败"))?;
+        let mut file = std::fs::File::open(&image_path)
+            .context(format!("打开`{}`失败", image_path.display()))?;
         std::io::copy(&mut file, &mut zip_writer).context(format!(
-            "`{comic_title}将`{image_path:?}`写入`{zip_path:?}`失败"
+            "`{comic_title}将`{}`写入`{}`失败",
+            image_path.display(),
+            zip_path.display()
         ))?;
     }
 
     zip_writer
         .finish()
-        .context(format!("`{comic_title}`关闭`{zip_path:?}`失败"))?;
+        .context(format!("`{comic_title}`关闭`{}`失败", zip_path.display()))?;
     // 发送导出cbz完成事件
     let _ = ExportCbzEvent::End { uuid: event_uuid }.emit(app);
 
@@ -129,7 +136,7 @@ pub fn pdf(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
     let comic_export_dir = get_comic_export_dir(app, comic);
     // 保证导出目录存在
     std::fs::create_dir_all(&comic_export_dir)
-        .context(format!("创建目录`{comic_export_dir:?}`失败"))?;
+        .context(format!("创建目录`{}`失败", comic_export_dir.display()))?;
     // 创建pdf
     let extension = Archive::Pdf.extension();
     let pdf_path = comic_export_dir.join(format!("{title}.{extension}"));
@@ -144,10 +151,10 @@ pub fn pdf(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
 #[allow(clippy::cast_possible_truncation)]
 fn create_pdf(comic_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> {
     let mut image_paths = std::fs::read_dir(comic_download_dir)
-        .context(format!("读取目录`{comic_download_dir:?}`失败"))?
+        .context(format!("读取目录`{}`失败", comic_download_dir.display()))?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
-        .filter(|path| path.extension() != Some(OsStr::new("json"))) // 过滤掉元数据.json文件
+        .filter(|path| path.is_common_img())
         .collect::<Vec<_>>();
     image_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
@@ -161,11 +168,11 @@ fn create_pdf(comic_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> 
         }
 
         let buffer = read_image_to_buffer(&image_path)
-            .context(format!("将`{image_path:?}`读取到buffer失败"))?;
+            .context(format!("将`{}`读取到buffer失败", image_path.display()))?;
         let (width, height) = image::image_dimensions(&image_path)
-            .context(format!("获取`{image_path:?}`的尺寸失败"))?;
+            .context(format!("获取`{}`的尺寸失败", image_path.display()))?;
         let image_stream = lopdf::xobject::image_from(buffer)
-            .context(format!("创建`{image_path:?}`的图片流失败"))?;
+            .context(format!("创建`{}`的图片流失败", image_path.display()))?;
         // 将图片流添加到doc中
         let img_id = doc.add_object(image_stream);
         // 图片的名称，用于 Do 操作在页面上显示图片
@@ -219,31 +226,26 @@ fn create_pdf(comic_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> 
     doc.compress();
 
     doc.save(pdf_path)
-        .context(format!("保存`{pdf_path:?}`失败"))?;
+        .context(format!("保存`{}`失败", pdf_path.display()))?;
     Ok(())
 }
 
 /// 读取`image_path`中的图片数据到buffer中
 fn read_image_to_buffer(image_path: &Path) -> anyhow::Result<Vec<u8>> {
-    let file = std::fs::File::open(image_path).context(format!("打开`{image_path:?}`失败"))?;
+    let file =
+        std::fs::File::open(image_path).context(format!("打开`{}`失败", image_path.display()))?;
     let mut reader = std::io::BufReader::new(file);
     let mut buffer = vec![];
     reader
         .read_to_end(&mut buffer)
-        .context(format!("读取`{image_path:?}`失败"))?;
+        .context(format!("读取`{}`失败", image_path.display()))?;
     Ok(buffer)
 }
 
 fn get_comic_download_dir(app: &AppHandle, comic: &Comic) -> PathBuf {
-    app.state::<RwLock<Config>>()
-        .read()
-        .download_dir
-        .join(&comic.title)
+    app.get_config().read().download_dir.join(&comic.title)
 }
 
 fn get_comic_export_dir(app: &AppHandle, comic: &Comic) -> PathBuf {
-    app.state::<RwLock<Config>>()
-        .read()
-        .export_dir
-        .join(&comic.title)
+    app.get_config().read().export_dir.join(&comic.title)
 }

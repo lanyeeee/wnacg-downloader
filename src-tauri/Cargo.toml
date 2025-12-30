@@ -47,6 +47,8 @@ bytes = { version = "1.10.1" }
 lopdf = { git = "https://github.com/lanyeeee/lopdf", features = ["embed_image_jpeg", "embed_image_png", "embed_image_webp"] }
 uuid = { version = "1.15.1", features = ["v4"] }
 zip = { version = "2.2.3", default-features = false }
+rayon = { version = "1.11.0" }
+strfmt = { version = "0.2.5" }
 
 
 [profile.release]

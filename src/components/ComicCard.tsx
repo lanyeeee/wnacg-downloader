@@ -2,9 +2,11 @@ import { computed, defineComponent, onMounted, PropType } from 'vue'
 import { useStore } from '../store.ts'
 import { commands, Shelf } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
-import { Button, Card } from 'ant-design-vue'
+import { NButton, NCard } from 'naive-ui'
 import DownloadButton from './DownloadButton.tsx'
-import styles from '../styles/ComicCard.module.css'
+import styles from './ComicCard.module.css'
+import IconButton from './IconButton.tsx'
+import { PhFolderOpen } from '@phosphor-icons/vue'
 
 export default defineComponent({
   name: 'ComicCard',
@@ -41,7 +43,7 @@ export default defineComponent({
       type: String,
       required: false,
     },
-    getFavorite: {
+    getShelf: {
       type: Function as PropType<(shelfId: number, pageNum: number) => Promise<void>>,
       required: false,
     },
@@ -85,17 +87,18 @@ export default defineComponent({
     }
 
     return () => (
-      <Card hoverable={true} class={`${styles.comicCard} cursor-auto rounded-none`} bodyStyle={{ padding: '0.25rem' }}>
+      <NCard hoverable class={`${styles.comicCard}`} content-style="padding: 0.25rem;">
         <div class="flex h-full">
           <img
             class="w-24 object-contain mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
             src={cover.value}
             alt=""
+            referrerpolicy="no-referrer"
             onClick={pickComic}
           />
           <div class="flex flex-col w-full">
             <span
-              class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
+              class="font-bold text-lg line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
               v-html={props.comicTitleHtml ?? props.comicTitle}
               onClick={pickComic}
             />
@@ -103,31 +106,31 @@ export default defineComponent({
               <span class="text-gray whitespace-pre-wrap">{props.comicAdditionalInfo}</span>
             )}
             {props.comicFavoriteTime && <span>收藏时间：{props.comicFavoriteTime}</span>}
-            {props.shelf && props.getFavorite && (
+            {props.shelf && props.getShelf && (
               <div>
                 <span>所属书架：</span>
                 {props.shelf.name !== '' && (
-                  <Button
-                    size="small"
+                  <NButton
+                    size="tiny"
                     onClick={async () => {
-                      if (props.shelf !== undefined && props.getFavorite !== undefined) {
-                        await props.getFavorite(props.shelf.id, 1)
+                      if (props.shelf !== undefined && props.getShelf !== undefined) {
+                        await props.getShelf(props.shelf.id, 1)
                       }
                     }}>
                     {props.shelf.name}
-                  </Button>
+                  </NButton>
                 )}
               </div>
             )}
             <div class="flex mt-auto">
               {props.comicDownloaded && (
-                <Button size="small" onClick={showComicDirInFileManager}>
-                  打开目录
-                </Button>
+                <IconButton title="打开下载目录" onClick={showComicDirInFileManager}>
+                  <PhFolderOpen size={24} />
+                </IconButton>
               )}
               <DownloadButton
                 class="ml-auto"
-                size="small"
+                size="medium"
                 type="primary"
                 comicId={props.comicId}
                 comicDownloaded={props.comicDownloaded}
@@ -135,7 +138,7 @@ export default defineComponent({
             </div>
           </div>
         </div>
-      </Card>
+      </NCard>
     )
   },
 })

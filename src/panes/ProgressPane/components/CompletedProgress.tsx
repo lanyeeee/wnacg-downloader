@@ -1,7 +1,7 @@
 import { computed, defineComponent } from 'vue'
-import { useStore } from '../store.ts'
-import { ProgressData } from '../types.ts'
-import DownloadedComicCard from './DownloadedComicCard.tsx'
+import { useStore } from '../../../store.ts'
+import { ProgressData } from '../../../types.ts'
+import DownloadedComicCard from '../../DownloadedPane/components/DownloadedComicCard.tsx'
 
 export default defineComponent({
   name: 'CompletedProgress',

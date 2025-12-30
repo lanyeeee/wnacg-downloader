@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::types::DownloadFormat;
 
-const DEFAULT_API_DOMAIN: &str = "www.wnacg03.cc";
+const DEFAULT_API_DOMAIN: &str = "www.wn06.ru";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]

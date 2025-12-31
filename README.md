@@ -11,7 +11,7 @@
 **如果本项目对你有帮助，欢迎点个 Star⭐ 支持！你的支持是我持续更新维护的动力🙏**
 
 # 🖥️ 图形界面
-![](https://github.com/user-attachments/assets/1b0db8b2-39d3-4ffd-8ec3-c177b3ce693c)
+![](https://github.com/user-attachments/assets/5745a2e7-67e9-4c0d-a776-498a8094a4e9)
 
 
 

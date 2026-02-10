@@ -152,40 +152,38 @@ export default defineComponent({
             <span class="font-bold mt-2">下载速度</span>
             <div class="flex flex-col gap-1">
               <div class="flex gap-1">
-                <div class="flex gap-1">
-                  <NInputGroup class="w-35%">
-                    <NInputGroupLabel size="small">漫画并发数</NInputGroupLabel>
-                    <NInputNumber
-                      class="w-full"
-                      size="small"
-                      value={store.config?.comicConcurrency}
-                      onUpdate:value={(value) => {
-                        if (store.config && value !== null) {
-                          message.warning('对漫画并发数的修改需要重启才能生效')
-                          store.config.comicConcurrency = value
-                        }
-                      }}
-                      min={1}
-                      parse={(x: string) => Number(x)}
-                    />
-                  </NInputGroup>
-                  <NInputGroup class="w-65%">
-                    <NInputGroupLabel size="small">每本漫画下载完成后休息</NInputGroupLabel>
-                    <NInputNumber
-                      class="w-full"
-                      size="small"
-                      value={store.config?.comicDownloadIntervalSec}
-                      onUpdate:value={(value) => {
-                        if (store.config && value !== null) {
-                          store.config.comicDownloadIntervalSec = value
-                        }
-                      }}
-                      min={0}
-                      parse={(x: string) => Number(x)}
-                    />
-                    <NInputGroupLabel size="small">秒</NInputGroupLabel>
-                  </NInputGroup>
-                </div>
+                <NInputGroup class="w-35%">
+                  <NInputGroupLabel size="small">漫画并发数</NInputGroupLabel>
+                  <NInputNumber
+                    class="w-full"
+                    size="small"
+                    value={store.config?.comicConcurrency}
+                    onUpdate:value={(value) => {
+                      if (store.config && value !== null) {
+                        message.warning('对漫画并发数的修改需要重启才能生效')
+                        store.config.comicConcurrency = value
+                      }
+                    }}
+                    min={1}
+                    parse={(x: string) => Number(x)}
+                  />
+                </NInputGroup>
+                <NInputGroup class="w-65%">
+                  <NInputGroupLabel size="small">每本漫画下载完成后休息</NInputGroupLabel>
+                  <NInputNumber
+                    class="w-full"
+                    size="small"
+                    value={store.config?.comicDownloadIntervalSec}
+                    onUpdate:value={(value) => {
+                      if (store.config && value !== null) {
+                        store.config.comicDownloadIntervalSec = value
+                      }
+                    }}
+                    min={0}
+                    parse={(x: string) => Number(x)}
+                  />
+                  <NInputGroupLabel size="small">秒</NInputGroupLabel>
+                </NInputGroup>
               </div>
 
               <div class="flex gap-1">

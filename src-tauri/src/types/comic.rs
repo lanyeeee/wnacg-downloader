@@ -120,6 +120,7 @@ impl Comic {
             .parse::<i64>()
             .context(format!("图片数量不是整数: {label_html}"))?;
 
+        let api_domain = app.get_config().read().get_api_domain();
         let mut tags = vec![];
         let tag_selector = Selector::parse(".tagshow").to_anyhow()?;
         for a in document.select(&tag_selector) {
@@ -134,8 +135,7 @@ impl Comic {
                 .attr("href")
                 .context(format!("标签的<a>没有href属性: {a_html}"))?
                 .to_string();
-            // TODO: 这里应该用API_DOMAIN
-            let url = format!("https://www.wn01.uk{href}");
+            let url = format!("https://{api_domain}{href}");
             tags.push(Tag { name, url });
         }
 

@@ -18,6 +18,7 @@ import {
 import { commands } from '../bindings.ts'
 import { path } from '@tauri-apps/api'
 import { appDataDir } from '@tauri-apps/api/path'
+import { openUrl } from '@tauri-apps/plugin-opener'
 
 export default defineComponent({
   props: {
@@ -146,6 +147,9 @@ export default defineComponent({
                     }
                   }}
                 />
+                <NButton size="small" onClick={() => openUrl('https://wn01.link/')}>
+                  打开发布页
+                </NButton>
               </NInputGroup>
             )}
 

@@ -23,11 +23,11 @@ export default defineComponent({
       default: false,
     },
     value: {
-      type: [String, Number] as PropType<InputProps['value']>,
+      type: String as PropType<InputProps['value']>,
       required: true,
     },
   },
-  emits: ['update:value'],
+  emits: { 'update:value': (_value: string) => true },
   setup(props, { emit }) {
     const focused = ref(false)
     const NInputRef = ref<InputInst>()
@@ -47,10 +47,6 @@ export default defineComponent({
       return ''
     })
 
-    const handleUpdateValue = (newValue: string | number | null) => {
-      emit('update:value', newValue)
-    }
-
     const render = () => (
       <NInput
         class={styles.floatLabelInput}
@@ -60,7 +56,7 @@ export default defineComponent({
         clearable={props.clearable}
         placeholder=""
         value={props.value}
-        onUpdateValue={handleUpdateValue}
+        onUpdateValue={(value) => emit('update:value', value)}
         onFocus={() => (focused.value = true)}
         onBlur={() => (focused.value = false)}>
         {{

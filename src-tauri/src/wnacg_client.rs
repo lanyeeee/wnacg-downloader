@@ -115,7 +115,7 @@ impl WnacgClient {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
         // 尝试将body解析为UserProfile
-        let user_profile = UserProfile::from_html(&body)
+        let user_profile = UserProfile::from_html(&self.app, &body)
             .context(format!("将body解析为UserProfile失败: {body}"))?;
         Ok(user_profile)
     }

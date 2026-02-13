@@ -61,19 +61,19 @@ impl PathIsImg for std::path::Path {
 }
 
 pub trait AppHandleExt {
-    fn get_config(&self) -> State<RwLock<Config>>;
-    fn get_wnacg_client(&self) -> State<WnacgClient>;
-    fn get_download_manager(&self) -> State<DownloadManager>;
+    fn get_config(&self) -> State<'_, RwLock<Config>>;
+    fn get_wnacg_client(&self) -> State<'_, WnacgClient>;
+    fn get_download_manager(&self) -> State<'_, DownloadManager>;
 }
 
 impl AppHandleExt for tauri::AppHandle {
-    fn get_config(&self) -> State<RwLock<Config>> {
+    fn get_config(&self) -> State<'_, RwLock<Config>> {
         self.state::<RwLock<Config>>()
     }
-    fn get_wnacg_client(&self) -> State<WnacgClient> {
+    fn get_wnacg_client(&self) -> State<'_, WnacgClient> {
         self.state::<WnacgClient>()
     }
-    fn get_download_manager(&self) -> State<DownloadManager> {
+    fn get_download_manager(&self) -> State<'_, DownloadManager> {
         self.state::<DownloadManager>()
     }
 }

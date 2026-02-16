@@ -26,6 +26,8 @@ body:
         没有详细的复现步骤将导致问题难以被定位，开发者需要花费大量时间来回沟通以定位问题
         仅提供报错信息或截图而没有复现步骤，问题难以被定位，也就难以被解决
         详细的复现步骤也是对项目维护工作的尊重
+    validations:
+      required: true
   - type: textarea
     id: expected
     attributes:

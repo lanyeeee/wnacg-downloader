@@ -34,5 +34,10 @@
     "vite": "^6.0.3",
     "vue-tsc": "^2.1.10"
   },
+  "pnpm": {
+    "overrides": {
+      "unconfig": "7.5.0"
+    }
+  },
   "packageManager": "pnpm@9.5.0"
 }

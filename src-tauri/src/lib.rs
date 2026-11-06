@@ -1,3 +1,4 @@
+mod browser_session;
 mod commands;
 mod config;
 mod download_manager;
@@ -6,6 +7,7 @@ mod events;
 mod export;
 mod extensions;
 mod logger;
+mod login_window;
 mod types;
 mod utils;
 mod wnacg_client;
@@ -35,6 +37,7 @@ pub fn run() {
             get_config,
             save_config,
             login,
+            close_login_window,
             get_user_profile,
             search_by_keyword,
             search_by_tag,
@@ -92,6 +95,8 @@ pub fn run() {
 
             let config = RwLock::new(Config::new(app.handle())?);
             app.manage(config);
+
+            app.manage(login_window::LoginState::default());
 
             let wnacg_client = WnacgClient::new(app.handle().clone());
             app.manage(wnacg_client);

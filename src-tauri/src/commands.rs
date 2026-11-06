@@ -12,8 +12,9 @@ use crate::{
     events::DownloadShelfEvent,
     export,
     extensions::{AnyhowErrorToStringChain, AppHandleExt},
-    logger,
+    logger, login_window,
     types::{Comic, GetShelfResult, SearchResult, UserProfile},
+    wnacg_client::LoginOutcome,
 };
 
 #[tauri::command]
@@ -78,15 +79,36 @@ pub fn save_config(app: AppHandle, config: Config) -> CommandResult<()> {
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn login(app: AppHandle, username: String, password: String) -> CommandResult<String> {
+pub async fn login(
+    app: AppHandle,
+    username: String,
+    password: String,
+) -> CommandResult<Option<String>> {
     let wnacg_client = app.get_wnacg_client();
+    let api_domain = app.get_config().read().get_api_domain();
+    let attempt = login_window::begin(&app);
+    let outcome = wnacg_client.login(&username, &password).await;
+    if !login_window::is_current(&app, attempt) {
+        return Ok(None);
+    }
+    let outcome = outcome.map_err(|err| CommandError::from("登录失败", err))?;
+    match outcome {
+        LoginOutcome::Authenticated(cookie) => {
+            login_window::save_cookie(&app, &api_domain, &cookie)
+                .map_err(|err| CommandError::from("保存登录状态失败", err))?;
+            tracing::debug!("登录成功");
+            Ok(Some(cookie))
+        }
+        LoginOutcome::CaptchaRequired => login_window::open(&app, &username, &password, attempt)
+            .await
+            .map_err(|err| CommandError::from("登录失败", err)),
+    }
+}
 
-    let cookie = wnacg_client
-        .login(&username, &password)
-        .await
-        .map_err(|err| CommandError::from("登录失败", err))?;
-    tracing::debug!("登录成功");
-    Ok(cookie)
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn close_login_window(app: AppHandle) -> CommandResult<()> {
+    login_window::close(&app).map_err(|err| CommandError::from("关闭登录窗口失败", err))
 }
 
 #[tauri::command(async)]

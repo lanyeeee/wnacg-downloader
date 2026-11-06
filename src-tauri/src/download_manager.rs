@@ -214,7 +214,13 @@ impl DownloadTask {
             .iter()
             .map(|img| &img.url)
             .filter(|url| !url.ends_with("shoucang.jpg")) // 过滤掉最后一张图片
-            .map(|url| format!("https:{url}"))
+            .map(|url| {
+                if url.starts_with("//") {
+                    format!("https:{url}")
+                } else {
+                    url.clone()
+                }
+            })
             .collect::<Vec<_>>();
         // 总共需要下载的图片数量
         self.total_img_count

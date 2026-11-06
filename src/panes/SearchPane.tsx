@@ -1,7 +1,7 @@
 import { defineComponent, ref, watch } from 'vue'
 import { NButton, NPagination, useMessage, NInputGroup, NIcon } from 'naive-ui'
 import { useStore } from '../store.ts'
-import { commands } from '../bindings.ts'
+import { commands, type CommandError } from '../bindings.ts'
 import ComicCard from '../components/ComicCard.tsx'
 import { PhArrowRight, PhMagnifyingGlass } from '@phosphor-icons/vue'
 import FloatLabelInput from '../components/FloatLabelInput.tsx'
@@ -31,39 +31,63 @@ export default defineComponent({
       },
     )
 
+    function showSearchError(error: CommandError) {
+      console.error(error)
+      let reason = error.err_message
+      if (/timed out|timeout/i.test(reason)) {
+        reason = '请求超时，请检查网络或代理后重试（连接超时 10 秒，请求总超时 30 秒）'
+      } else if (/error sending request|connect|dns/i.test(reason)) {
+        reason = '无法连接网站，请检查网络、代理和配置中的网站域名'
+      } else if (/SearchResult|html|总结果数/i.test(reason)) {
+        reason = '无法解析网站返回的搜索结果，请在日志中查看详细原因'
+      }
+      message.error(`${error.err_title}：${reason.slice(0, 300)}`, {
+        duration: 8000,
+        closable: true,
+      })
+    }
+
     async function searchByKeyword(keyword: string, pageNum: number) {
+      if (searchingByKeyword.value) return
       searchByKeywordInput.value = keyword
       currentPage.value = pageNum
 
       searchingByKeyword.value = true
 
-      const result = await commands.searchByKeyword(keyword, pageNum)
-      if (result.status === 'error') {
+      try {
+        const result = await commands.searchByKeyword(keyword, pageNum)
+        if (result.status === 'error') {
+          showSearchError(result.error)
+          return
+        }
+        store.searchResult = result.data
+      } catch {
+        message.error('关键词搜索失败：应用通信异常，请重试')
+      } finally {
         searchingByKeyword.value = false
-        console.error(result.error)
-        return
       }
-
-      searchingByKeyword.value = false
-      store.searchResult = result.data
     }
 
     async function searchByTag(tagName: string, pageNum: number) {
+      if (searchingByTag.value) return
       searchByTagInput.value = tagName
       currentPage.value = pageNum
 
       searchingByTag.value = true
 
-      const result = await commands.searchByTag(tagName, pageNum)
-      if (result.status === 'error') {
+      try {
+        const result = await commands.searchByTag(tagName, pageNum)
+        if (result.status === 'error') {
+          showSearchError(result.error)
+          return
+        }
+        store.searchResult = result.data
+        store.currentTabName = 'search'
+      } catch {
+        message.error('标签搜索失败：应用通信异常，请重试')
+      } finally {
         searchingByTag.value = false
-        console.error(result.error)
-        return
       }
-
-      searchingByTag.value = false
-      store.searchResult = result.data
-      store.currentTabName = 'search'
     }
 
     async function onPageChange(page: number) {

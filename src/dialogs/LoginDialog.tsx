@@ -1,4 +1,4 @@
-import { defineComponent, ref } from 'vue'
+import { defineComponent, onBeforeUnmount, ref, watch } from 'vue'
 import { useMessage, NModal, NDialog } from 'naive-ui'
 import { useStore } from '../store.ts'
 import { commands } from '../bindings.ts'
@@ -20,46 +20,71 @@ export default defineComponent({
 
     const message = useMessage()
 
-    const username = ref<string>('')
-    const password = ref<string>('')
+    const loggingIn = ref(false)
+    const username = ref('')
+    const password = ref('')
 
     async function login() {
-      if (store.config === undefined) {
-        return
-      }
-      if (username.value === '') {
+      if (loggingIn.value || store.config === undefined) return
+      if (!username.value.trim()) {
         message.error('请输入用户名')
         return
       }
-      if (password.value === '') {
+      if (!password.value) {
         message.error('请输入密码')
         return
       }
-      const result = await commands.login(username.value, password.value)
-      if (result.status === 'error') {
-        console.error(result.error)
-        return
+      loggingIn.value = true
+      try {
+        const result = await commands.login(username.value.trim(), password.value)
+        if (result.status === 'error') {
+          message.error(`${result.error.err_title}：${result.error.err_message}`)
+          return
+        }
+        if (result.data !== null) {
+          store.config.cookie = result.data
+          password.value = ''
+          message.success('登录成功')
+          emit('update:showing', false)
+        }
+      } catch {
+        message.error('登录失败，请重试')
+      } finally {
+        loggingIn.value = false
       }
-      message.success('登录成功')
-      store.config.cookie = result.data
+    }
+
+    function close() {
+      password.value = ''
       emit('update:showing', false)
     }
 
-    function handleKeydown(e: KeyboardEvent) {
-      if (e.key === 'Enter') {
-        login()
-      }
-    }
+    watch(
+      () => props.showing,
+      (showing) => {
+        if (!showing) {
+          void commands.closeLoginWindow()
+        }
+      },
+    )
+    onBeforeUnmount(() => void commands.closeLoginWindow())
 
     return () => (
-      <NModal show={props.showing} onUpdate:show={(value) => emit('update:showing', value)}>
+      <NModal show={props.showing} maskClosable={false} onUpdate:show={close}>
         <NDialog
           showIcon={false}
           title="账号登录"
-          positiveText="登录"
+          positiveText={loggingIn.value ? '登录中…' : '登录'}
+          positiveButtonProps={{ loading: loggingIn.value, disabled: loggingIn.value }}
+          negativeText="取消"
           onPositiveClick={login}
-          onClose={() => emit('update:showing', false)}
-          {...{ onKeydown: handleKeydown }}>
+          onNegativeClick={close}
+          onClose={close}
+          {...{
+            onKeydown: (event: KeyboardEvent) => {
+              if (event.key === 'Enter') void login()
+            },
+          }}>
           <div class="flex flex-col gap-2">
             <FloatLabelInput
               label="用户名"
@@ -72,6 +97,9 @@ export default defineComponent({
               onUpdate:value={(value) => (password.value = value)}
               type="password"
             />
+            {loggingIn.value && (
+              <span class="text-sm text-gray-500">如需验证，请在弹出的小窗中完成滑块，随后会自动继续登录。</span>
+            )}
           </div>
         </NDialog>
       </NModal>

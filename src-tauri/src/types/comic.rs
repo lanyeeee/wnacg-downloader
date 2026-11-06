@@ -103,26 +103,12 @@ impl Comic {
             .context(format!("分类<label>的文本不是以`分類：`开头: {label_html}"))?
             .to_string();
 
-        let label = document
-            .select(&Selector::parse(".asTBcell.uwconn > label").to_anyhow()?)
-            .nth(1)
-            .context(format!("没有找到图片数量的<label>: {document_html}"))?;
-        let label_html = label.html();
-
-        let image_count = label
-            .text()
-            .next()
-            .context(format!("图片数量的<label>没有文本: {label_html}"))?
-            .strip_prefix("頁數：")
-            .context(format!("图片数量的文本不是以`頁數：`开头: {label_html}"))?
-            .strip_suffix("P")
-            .context(format!("图片数量的文本不是以`P`结尾: {label_html}"))?
-            .parse::<i64>()
-            .context(format!("图片数量不是整数: {label_html}"))?;
+        // Series pages report chapter counts instead of page counts.
+        let image_count = i64::try_from(img_list.len()).context("漫画图片数量过大")?;
 
         let api_domain = app.get_config().read().get_api_domain();
         let mut tags = vec![];
-        let tag_selector = Selector::parse(".tagshow").to_anyhow()?;
+        let tag_selector = Selector::parse(".tagshow:not([data-chid])").to_anyhow()?;
         for a in document.select(&tag_selector) {
             let Some(text) = a.text().next() else {
                 // 有些标签的<a>没有文本，跳过这些标签

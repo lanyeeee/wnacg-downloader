@@ -51,6 +51,10 @@ rayon = { version = "1.11.0" }
 strfmt = { version = "0.2.5" }
 
 
+[target.'cfg(windows)'.dependencies]
+webview2-com = "=0.36.0"
+windows = "=0.60.0"
+
 [profile.release]
 strip = true
 lto = true

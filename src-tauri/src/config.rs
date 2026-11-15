@@ -47,6 +47,9 @@ impl Config {
         } else {
             Config::default(&app_data_dir)
         };
+        // 兼容浏览器扩展导出的 JSON / Netscape 等 cookie 格式
+        let mut config = config;
+        config.cookie = crate::cookie::normalize(&config.cookie);
         config.save(app)?;
         Ok(config)
     }
@@ -54,7 +57,9 @@ impl Config {
     pub fn save(&self, app: &AppHandle) -> anyhow::Result<()> {
         let app_data_dir = app.path().app_data_dir()?;
         let config_path = app_data_dir.join("config.json");
-        let config_string = serde_json::to_string_pretty(self)?;
+        let mut config = self.clone();
+        config.cookie = crate::cookie::normalize(&self.cookie);
+        let config_string = serde_json::to_string_pretty(&config)?;
         std::fs::write(config_path, config_string)?;
         Ok(())
     }

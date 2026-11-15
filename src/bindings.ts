@@ -27,6 +27,20 @@ async login(username: string, password: string) : Promise<Result<string, Command
     else return { status: "error", error: e  as any };
 }
 },
+async loginByCookie(cookie: string) : Promise<Result<string, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("login_by_cookie", { cookie }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async normalizeCookie(cookie: string) : Promise<string> {
+    return await TAURI_INVOKE("normalize_cookie", { cookie });
+},
+async getApiDomain() : Promise<string> {
+    return await TAURI_INVOKE("get_api_domain");
+},
 async getUserProfile() : Promise<Result<UserProfile, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_user_profile") };

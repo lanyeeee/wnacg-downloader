@@ -1,11 +1,13 @@
 mod commands;
 mod config;
+mod cookie;
 mod download_manager;
 mod errors;
 mod events;
 mod export;
 mod extensions;
 mod logger;
+mod slider;
 mod types;
 mod utils;
 mod wnacg_client;
@@ -35,6 +37,9 @@ pub fn run() {
             get_config,
             save_config,
             login,
+            login_by_cookie,
+            normalize_cookie,
+            get_api_domain,
             get_user_profile,
             search_by_keyword,
             search_by_tag,

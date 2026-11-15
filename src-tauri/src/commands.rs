@@ -39,6 +39,10 @@ pub fn save_config(app: AppHandle, config: Config) -> CommandResult<()> {
     let config_state = app.get_config();
     let wnacg_client = app.get_wnacg_client();
 
+    // 兼容浏览器扩展导出的 JSON / Netscape / 请求头形式的 cookie
+    let mut config = config;
+    config.cookie = crate::cookie::normalize(&config.cookie);
+
     let proxy_changed = {
         let config_state = config_state.read();
         config_state.proxy_mode != config.proxy_mode
@@ -87,6 +91,34 @@ pub async fn login(app: AppHandle, username: String, password: String) -> Comman
         .map_err(|err| CommandError::from("登录失败", err))?;
     tracing::debug!("登录成功");
     Ok(cookie)
+}
+
+/// 用浏览器导出的 cookie 直接登录（绕过滑块验证），返回规范化后的 cookie
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn login_by_cookie(app: AppHandle, cookie: String) -> CommandResult<String> {
+    let wnacg_client = app.get_wnacg_client();
+
+    let cookie = wnacg_client
+        .login_by_cookie(&cookie)
+        .await
+        .map_err(|err| CommandError::from("cookie 登录失败", err))?;
+    tracing::debug!("cookie 登录成功");
+    Ok(cookie)
+}
+
+/// 把任意格式的 cookie 规范化为 `name=value; name2=value2`
+#[tauri::command(async)]
+#[specta::specta]
+pub fn normalize_cookie(cookie: String) -> String {
+    crate::cookie::normalize(&cookie)
+}
+
+/// 当前实际可用的镜像域名
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_api_domain(app: AppHandle) -> String {
+    app.get_wnacg_client().api_domain().await
 }
 
 #[tauri::command(async)]

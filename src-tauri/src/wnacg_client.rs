@@ -13,9 +13,13 @@ use tauri::AppHandle;
 
 use crate::{
     config::ProxyMode,
+    cookie,
     extensions::{AnyhowErrorToStringChain, AppHandleExt},
+    slider::{self, SliderChallenge, SliderVerifyResp},
     types::{Comic, GetShelfResult, ImgList, SearchResult, UserProfile},
 };
+
+const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +34,8 @@ pub struct WnacgClient {
     api_client: Arc<RwLock<ClientWithMiddleware>>,
     img_client: Arc<RwLock<ClientWithMiddleware>>,
     cover_client: Client,
+    /// 解析后的可用镜像域名，避免 301/302 把登录 POST 变成 GET
+    resolved_domain: Arc<RwLock<String>>,
 }
 
 impl WnacgClient {
@@ -40,12 +46,13 @@ impl WnacgClient {
         let img_client = create_img_client(&app);
         let img_client = Arc::new(RwLock::new(img_client));
 
-        let cover_client = Client::new();
+        let cover_client = create_cover_client(&app);
         Self {
             app,
             api_client,
             img_client,
             cover_client,
+            resolved_domain: Arc::new(RwLock::new(String::new())),
         }
     }
 
@@ -54,67 +61,239 @@ impl WnacgClient {
         *self.api_client.write() = api_client;
         let img_client = create_img_client(&self.app);
         *self.img_client.write() = img_client;
+        // 代理/并发配置变了，顺便重新解析镜像域名
+        self.invalidate_domain();
+    }
+
+    /// 当前实际可用的域名：先 GET 首页跟随跳转解析出真实域名并缓存
+    pub async fn api_domain(&self) -> String {
+        let cached = self.resolved_domain.read().clone();
+        if !cached.is_empty() {
+            return cached;
+        }
+        let seed = self.app.get_config().read().get_api_domain();
+        let domain = match self.probe_domain(&seed).await {
+            Ok(domain) => domain,
+            Err(err) => {
+                let err_title = "解析镜像域名失败，直接使用配置域名";
+                let string_chain = err.to_string_chain();
+                tracing::warn!(err_title, message = string_chain);
+                seed
+            }
+        };
+        *self.resolved_domain.write() = domain.clone();
+        domain
+    }
+
+    /// 站点换镜像时清掉缓存，下次请求重新解析
+    pub fn invalidate_domain(&self) {
+        *self.resolved_domain.write() = String::new();
+    }
+
+    async fn probe_domain(&self, seed: &str) -> anyhow::Result<String> {
+        let client = self.api_client.read().clone();
+        let url = format!("https://{seed}/");
+        let http_resp = client
+            .get(&url)
+            .header("user-agent", UA)
+            .send()
+            .await
+            .context("请求站点首页失败")?;
+        let final_url = http_resp.url().clone();
+        let host = final_url
+            .host_str()
+            .context("无法从跳转后的地址中解析域名")?
+            .to_string();
+        tracing::debug!("镜像域名解析完成: {seed} -> {host}");
+        Ok(host)
     }
 
     pub async fn login(&self, username: &str, password: &str) -> anyhow::Result<String> {
-        let form = json!({
-            "login_name": username,
-            "login_pass": password,
-        });
-        // 发送登录请求
-        let api_domain = self.get_api_domain();
+        // 注意：每次滑块验证失败都会累计站点风控次数（10 分钟内失败太多会被临时封），
+        // 所以这里不做激进重试：只在镜像跳转/响应格式异常时重来一次。
+        let mut retried = false;
+        loop {
+            let domain = self.api_domain().await;
+            // 1. 自动过滑块，拿一次性通行证
+            let slider_pass = match self.solve_slider(&domain).await {
+                Ok(pass) => pass,
+                Err(err) => {
+                    let text = err.to_string();
+                    if text.contains("失敗次數太多") || text.contains("失败次数太多") {
+                        return Err(anyhow!(
+                            "滑块验证失败次数过多，站点已临时限制（{text}）。请等 10 分钟后再试，或改用 Cookie 登录"
+                        ));
+                    }
+                    let err_title = "自动完成滑块验证失败，将尝试不带通行证登录";
+                    let string_chain = err.to_string_chain();
+                    tracing::warn!(err_title, message = string_chain);
+                    String::new()
+                }
+            };
+            // 2. 带通行证登录
+            let form = json!({
+                "login_name": username,
+                "login_pass": password,
+                "slider_pass": slider_pass,
+            });
+            let request = self
+                .api_client
+                .read()
+                .post(format!("https://{domain}/index.php?ctl=users&act=check_login"))
+                .header("user-agent", UA)
+                .header("referer", format!("https://{domain}/users-login.html"))
+                .header("origin", format!("https://{domain}"))
+                .header("x-requested-with", "XMLHttpRequest")
+                .form(&form);
+            let http_resp = request.send().await?;
+
+            let status = http_resp.status();
+            let headers = http_resp.headers().clone();
+            let body = http_resp.text().await?;
+
+            if status.is_redirection() || status == StatusCode::NOT_FOUND {
+                // 镜像可能已经换了，清缓存后重试一次
+                self.invalidate_domain();
+                if retried {
+                    return Err(anyhow!("登录接口状态码异常({status}): {body}"));
+                }
+                retried = true;
+                continue;
+            }
+            if status != StatusCode::OK {
+                return Err(anyhow!("预料之外的状态码({status}): {body}"));
+            }
+
+            let login_resp = match serde_json::from_str::<LoginResp>(&body) {
+                Ok(resp) => resp,
+                Err(_) => {
+                    if retried {
+                        return Err(anyhow!("登录响应不是预期格式: {body}"));
+                    }
+                    retried = true;
+                    continue;
+                }
+            };
+
+            if !login_resp.ret {
+                let msg = login_resp.html.clone();
+                if msg.contains("滑塊") || msg.contains("滑块") {
+                    return Err(anyhow!(
+                        "滑块验证未通过（站点返回: {msg}）。可稍后重试，或改用 Cookie 登录"
+                    ));
+                }
+                return Err(anyhow!("{}", friendly_login_error(&msg)));
+            }
+
+            let set_cookie = cookie::from_set_cookie_headers(
+                headers
+                    .get_all("set-cookie")
+                    .iter()
+                    .filter_map(|value| value.to_str().ok()),
+            );
+            if set_cookie.is_empty() {
+                return Err(anyhow!("登录成功但响应中没有 set-cookie 字段: {login_resp:?}"));
+            }
+            tracing::debug!("登录成功，拿到 cookie");
+            return Ok(set_cookie);
+        }
+    }
+
+    /// 走 `index.php?ctl=slider&act=create` + `act=verify`，返回一次性通行证
+    pub async fn solve_slider(&self, domain: &str) -> anyhow::Result<String> {
+        let create_url = format!(
+            "https://{domain}/index.php?ctl=slider&act=create&_t={}",
+            slider::now_millis()
+        );
         let request = self
             .api_client
             .read()
-            .post(format!("https://{api_domain}/users-check_login.html"))
-            .header("referer", format!("https://{api_domain}/"))
-            .form(&form);
-        let http_resp = request.send().await?;
-        // 检查http响应状态码
+            .get(create_url)
+            .header("user-agent", UA)
+            .header("referer", format!("https://{domain}/users-login.html"));
+        let http_resp = request.send().await.context("请求滑块题目失败")?;
+
         let status = http_resp.status();
-        let headers = http_resp.headers().clone();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
-            return Err(anyhow!("预料之外的状态码({status}): {body}"));
+            return Err(anyhow!("获取滑块题目失败({status}): {body}"));
         }
-        // 尝试将body解析为LoginResp
-        let login_resp = serde_json::from_str::<LoginResp>(&body)
-            .context(format!("将body解析为LoginResp失败: {body}"))?;
-        // 检查LoginResp的ret字段，如果为false则登录失败
-        if !login_resp.ret {
-            return Err(anyhow!("登录失败: {login_resp:?}"));
-        }
-        // 获取resp header中的set-cookie字段
-        let cookie = headers
-            .get("set-cookie")
-            .ok_or(anyhow!("响应中没有set-cookie字段: {login_resp:?}"))?
-            .to_str()
-            .context(format!(
-                "响应中的set-cookie字段不是utf-8字符串: {login_resp:?}"
-            ))?
-            .to_string();
+        let challenge: SliderChallenge =
+            serde_json::from_str(&body).context(format!("解析滑块题目失败: {body}"))?;
 
+        let x = slider::locate_gap(&challenge).context("识别滑块缺口位置失败")?;
+        let track = slider::build_track(f64::from(x), u64::from(challenge.w) << 32 | u64::from(x));
+        let track_json = serde_json::to_string(&track).context("序列化滑动轨迹失败")?;
+        let form = [
+            ("token", challenge.token.clone()),
+            ("x", format!("{:.1}", f64::from(x))),
+            ("track", track_json),
+        ];
+
+        let request = self
+            .api_client
+            .read()
+            .post(format!("https://{domain}/index.php?ctl=slider&act=verify"))
+            .header("user-agent", UA)
+            .header("referer", format!("https://{domain}/users-login.html"))
+            .header("origin", format!("https://{domain}"))
+            .header("x-requested-with", "XMLHttpRequest")
+            .form(&form);
+        let http_resp = request.send().await.context("提交滑块验证失败")?;
+
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("滑块验证请求失败({status}): {body}"));
+        }
+        let verify_resp: SliderVerifyResp =
+            serde_json::from_str(&body).context(format!("解析滑块验证响应失败: {body}"))?;
+        match verify_resp.pass {
+            Some(pass) if !pass.is_empty() => {
+                tracing::debug!("滑块验证通过，缺口x={x}");
+                Ok(pass)
+            }
+            _ => Err(anyhow!(
+                "滑块验证未通过: {}",
+                verify_resp.error.unwrap_or_else(|| body.clone())
+            )),
+        }
+    }
+
+    /// 用浏览器导出的 cookie（JSON 数组 / Netscape / 请求头）登录，返回规范化后的 cookie
+    pub async fn login_by_cookie(&self, raw_cookie: &str) -> anyhow::Result<String> {
+        let cookie = cookie::normalize(raw_cookie);
+        if cookie.is_empty() {
+            return Err(anyhow!("cookie 为空"));
+        }
+        let profile = self.get_user_profile_with_cookie(&cookie).await?;
+        tracing::debug!("cookie 校验通过，用户: {}", profile.username);
         Ok(cookie)
     }
 
     pub async fn get_user_profile(&self) -> anyhow::Result<UserProfile> {
-        let cookie = self.app.get_config().read().cookie.clone();
-        // 发送获取用户信息请求
-        let api_domain = self.get_api_domain();
+        let cookie = cookie::normalize(&self.app.get_config().read().cookie);
+        self.get_user_profile_with_cookie(&cookie).await
+    }
+
+    pub async fn get_user_profile_with_cookie(&self, cookie: &str) -> anyhow::Result<UserProfile> {
+        let api_domain = self.api_domain().await;
         let request = self
             .api_client
             .read()
             .get(format!("https://{api_domain}/users.html"))
+            .header("user-agent", UA)
             .header("cookie", cookie)
             .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
-        // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // 尝试将body解析为UserProfile
+        if body.contains("需要登錄") || body.contains("需要登录") {
+            return Err(anyhow!("未登录，cookie 已过期或无效"));
+        }
         let user_profile = UserProfile::from_html(&self.app, &body)
             .context(format!("将body解析为UserProfile失败: {body}"))?;
         Ok(user_profile)
@@ -132,11 +311,12 @@ impl WnacgClient {
             "s": "create_time_DESC",
             "p": page_num,
         });
-        let api_domain = self.get_api_domain();
+        let api_domain = self.api_domain().await;
         let request = self
             .api_client
             .read()
             .get(format!("https://{api_domain}/search/index.php"))
+            .header("user-agent", UA)
             .header("referer", format!("https://{api_domain}/"))
             .query(&params);
         let http_resp = request.send().await?;
@@ -145,7 +325,6 @@ impl WnacgClient {
         if status != StatusCode::OK {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // 尝试将body解析为SearchResult
         let search_result = SearchResult::from_html(&self.app, &body, false)
             .context(format!("将html解析为SearchResult失败: {body}"))?;
         Ok(search_result)
@@ -156,12 +335,13 @@ impl WnacgClient {
         tag_name: &str,
         page_num: i64,
     ) -> anyhow::Result<SearchResult> {
-        let api_domain = self.get_api_domain();
+        let api_domain = self.api_domain().await;
         let url = format!("https://{api_domain}/albums-index-page-{page_num}-tag-{tag_name}.html");
         let request = self
             .api_client
             .read()
             .get(url)
+            .header("user-agent", UA)
             .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         let status = http_resp.status();
@@ -169,19 +349,19 @@ impl WnacgClient {
         if status != StatusCode::OK {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // 尝试将body解析为SearchResult
         let search_result = SearchResult::from_html(&self.app, &body, true)
             .context(format!("将html解析为SearchResult失败: {body}"))?;
         Ok(search_result)
     }
 
     pub async fn get_img_list(&self, id: i64) -> anyhow::Result<ImgList> {
-        let api_domain = self.get_api_domain();
+        let api_domain = self.api_domain().await;
         let url = format!("https://{api_domain}/photos-gallery-aid-{id}.html");
         let request = self
             .api_client
             .read()
             .get(url)
+            .header("user-agent", UA)
             .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         let status = http_resp.status();
@@ -189,36 +369,33 @@ impl WnacgClient {
         if status != StatusCode::OK {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // 找到包含`imglist`的行
         let img_list_line = body
             .lines()
             .find(|line| line.contains("var imglist = "))
             .context("没有找到包含`imglist`的行")?;
-        // 找到`imglist`行中的 JSON 部分的起始和结束位置
         let start = img_list_line
             .find('[')
             .context("没有在`imglist`行中找到`[`")?;
         let end = img_list_line
             .rfind(']')
             .context("没有在`imglist`行中找到`]`")?;
-        // 将 JSON 部分提取出来，并转为合法的 JSON 字符串
         let json_str = &img_list_line[start..=end]
             .replace("url:", "\"url\":")
             .replace("caption:", "\"caption\":")
             .replace("fast_img_host+", "")
             .replace("\\\"", "\"");
-        // 将 JSON 字符串解析为 ImgList
         let img_list = serde_json::from_str::<ImgList>(json_str)
             .context(format!("将JSON字符串解析为ImgList失败: {json_str}"))?;
         Ok(img_list)
     }
 
     pub async fn get_comic(&self, id: i64) -> anyhow::Result<Comic> {
-        let api_domain = self.get_api_domain();
+        let api_domain = self.api_domain().await;
         let request = self
             .api_client
             .read()
             .get(format!("https://{api_domain}/photos-index-aid-{id}.html"))
+            .header("user-agent", UA)
             .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
         let status = http_resp.status();
@@ -226,9 +403,7 @@ impl WnacgClient {
         if status != StatusCode::OK {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // TODO: 可以并发获取body和img_list
         let img_list = self.get_img_list(id).await?;
-        // 尝试将body解析为Comic
         let comic = Comic::from_html(&self.app, &body, img_list)
             .context(format!("将body和解析为Comic失败: {body}"))?;
 
@@ -236,39 +411,36 @@ impl WnacgClient {
     }
 
     pub async fn get_shelf(&self, shelf_id: i64, page_num: i64) -> anyhow::Result<GetShelfResult> {
-        let cookie = self.app.get_config().read().cookie.clone();
-        // 发送获取书架请求
-        let api_domain = self.get_api_domain();
+        let cookie = cookie::normalize(&self.app.get_config().read().cookie);
+        let api_domain = self.api_domain().await;
         let url = format!("https://{api_domain}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
         let request = self
             .api_client
             .read()
             .get(url)
+            .header("user-agent", UA)
             .header("cookie", cookie)
             .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
-        // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status != StatusCode::OK {
             return Err(anyhow!("预料之外的状态码({status}): {body}"));
         }
-        // 尝试将body解析为GetShelfResult
         let get_shelf_result = GetShelfResult::from_html(&self.app, &body)
             .context(format!("将body解析为GetShelfResult失败: {body}"))?;
         Ok(get_shelf_result)
     }
 
     pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {
-        // 发送下载图片请
-        let api_domain = self.get_api_domain();
+        let api_domain = self.api_domain().await;
         let request = self
             .img_client
             .read()
             .get(url)
+            .header("user-agent", UA)
             .header("referer", format!("https://{api_domain}/"));
         let http_resp = request.send().await?;
-        // 检查http响应状态码
         let status = http_resp.status();
         if status == StatusCode::TOO_MANY_REQUESTS {
             return Err(anyhow!("IP被封，请在配置中减少并发数或设置下载完成后的休息时间，以此降低下载速度，稍后再试"));
@@ -285,10 +457,11 @@ impl WnacgClient {
     }
 
     pub async fn get_cover_data(&self, cover_url: &str) -> anyhow::Result<Bytes> {
-        let api_domain = self.get_api_domain();
+        let api_domain = self.api_domain().await;
         let http_resp = self
             .cover_client
             .get(cover_url)
+            .header("user-agent", UA)
             .header("referer", format!("https://{api_domain}/"))
             .send()
             .await?;
@@ -300,10 +473,16 @@ impl WnacgClient {
         let cover_data = http_resp.bytes().await?;
         Ok(cover_data)
     }
+}
 
-    fn get_api_domain(&self) -> String {
-        self.app.get_config().read().get_api_domain()
+fn friendly_login_error(html: &str) -> String {
+    if html.contains("用戶名") || html.contains("用户名") {
+        return format!("用户名或密码错误（站点返回: {}）", html.trim());
     }
+    if html.contains("滑塊") || html.contains("滑块") {
+        return format!("站点要求滑块验证（站点返回: {}）", html.trim());
+    }
+    format!("登录失败（站点返回: {}）", html.trim())
 }
 
 fn create_api_client(app: &AppHandle) -> ClientWithMiddleware {
@@ -314,7 +493,13 @@ fn create_api_client(app: &AppHandle) -> ClientWithMiddleware {
 
     let client = reqwest::ClientBuilder::new()
         .use_rustls_tls()
-        .timeout(Duration::from_secs(3)) // 每个请求超过3秒就超时
+        .user_agent(UA)
+        .pool_max_idle_per_host(32)
+        .pool_idle_timeout(Duration::from_secs(90))
+        .tcp_keepalive(Duration::from_secs(30))
+        .tcp_nodelay(true)
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(20)) // 原来是3秒，登录页/搜索页经常超时
         .set_proxy(app, "api_client")
         .build()
         .unwrap();
@@ -327,8 +512,16 @@ fn create_api_client(app: &AppHandle) -> ClientWithMiddleware {
 fn create_img_client(app: &AppHandle) -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
 
+    let img_concurrency = app.get_config().read().img_concurrency.max(4);
     let client = reqwest::ClientBuilder::new()
         .use_rustls_tls()
+        .user_agent(UA)
+        .pool_max_idle_per_host(img_concurrency * 2)
+        .pool_idle_timeout(Duration::from_secs(120))
+        .tcp_keepalive(Duration::from_secs(30))
+        .tcp_nodelay(true)
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(60))
         .set_proxy(app, "img_client")
         .build()
         .unwrap();
@@ -336,6 +529,22 @@ fn create_img_client(app: &AppHandle) -> ClientWithMiddleware {
     reqwest_middleware::ClientBuilder::new(client)
         .with(RetryTransientMiddleware::new_with_policy(retry_policy))
         .build()
+}
+
+fn create_cover_client(app: &AppHandle) -> Client {
+    let builder = reqwest::ClientBuilder::new()
+        .use_rustls_tls()
+        .user_agent(UA)
+        .pool_max_idle_per_host(16)
+        .tcp_keepalive(Duration::from_secs(30))
+        .tcp_nodelay(true)
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(30));
+    let builder = match app.get_config().read().proxy_mode {
+        ProxyMode::NoProxy => builder.no_proxy(),
+        _ => builder,
+    };
+    builder.build().unwrap_or_else(|_| Client::new())
 }
 
 trait ClientBuilderExt {

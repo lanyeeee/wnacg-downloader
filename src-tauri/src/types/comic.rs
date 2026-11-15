@@ -16,8 +16,7 @@ use super::{ImgList, Tag};
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::struct_field_names)]
-pub struct Comic {
-    /// 漫画id
+pub struct Comic {    /// 漫画id
     pub id: i64,
     /// 漫画标题
     pub title: String,
@@ -103,27 +102,31 @@ impl Comic {
             .context(format!("分类<label>的文本不是以`分類：`开头: {label_html}"))?
             .to_string();
 
-        let label = document
+        // 单话作品给的是 `頁數：325P`，合集/多话作品给的是 `章節：23 話`，
+        // 所以把 uwconn 下的 label 都扫一遍，取 `頁數：`；拿不到就用图片列表长度兜底
+        let label_texts = document
             .select(&Selector::parse(".asTBcell.uwconn > label").to_anyhow()?)
-            .nth(1)
-            .context(format!("没有找到图片数量的<label>: {document_html}"))?;
-        let label_html = label.html();
-
-        let image_count = label
-            .text()
-            .next()
-            .context(format!("图片数量的<label>没有文本: {label_html}"))?
-            .strip_prefix("頁數：")
-            .context(format!("图片数量的文本不是以`頁數：`开头: {label_html}"))?
-            .strip_suffix("P")
-            .context(format!("图片数量的文本不是以`P`结尾: {label_html}"))?
-            .parse::<i64>()
-            .context(format!("图片数量不是整数: {label_html}"))?;
+            .filter_map(|label| label.text().next().map(str::trim))
+            .collect::<Vec<_>>();
+        let counts = CountLabels::parse(&label_texts, img_list.len() as i64);
+        if let Some(chapters) = counts.chapter_count {
+            tracing::debug!("这是一部合集，共 {chapters} 话");
+        }
+        let image_count = counts.image_count;
 
         let api_domain = app.get_config().read().get_api_domain();
         let mut tags = vec![];
         let tag_selector = Selector::parse(".tagshow").to_anyhow()?;
         for a in document.select(&tag_selector) {
+            // 合集页面的章节目录也用 `.tagshow`，靠 `data-chid` / `photos-slide-aid-*` 区分，
+            // 这些是章节不是标签
+            if a.value().attr("data-chid").is_some()
+                || a.value()
+                    .attr("href")
+                    .is_some_and(|href| href.contains("photos-slide-aid-"))
+            {
+                continue;
+            }
             let Some(text) = a.text().next() else {
                 // 有些标签的<a>没有文本，跳过这些标签
                 continue;
@@ -139,11 +142,12 @@ impl Comic {
             tags.push(Tag { name, url });
         }
 
+        // 简介：优先取带 `簡介` 的那段，合集页面第一条 <p> 是阅读状态占位
         let intro = document
             .select(&Selector::parse(".asTBcell.uwconn > p").to_anyhow()?)
-            .next()
-            .context(format!("没有找到简介的<p>: {document_html}"))?
-            .html();
+            .find(|p| p.text().any(|text| text.contains("簡介")))
+            .map(|p| p.html())
+            .unwrap_or_default();
 
         let is_downloaded = app.get_config().read().download_dir.join(&title).exists();
         let is_downloaded = Some(is_downloaded);
@@ -180,5 +184,70 @@ impl Comic {
             .exists();
         comic.is_downloaded = Some(is_downloaded);
         Ok(comic)
+    }
+}
+
+/// 详情页头部标签的解析结果
+///
+/// - 单话作品：`頁數：325P`
+/// - 合集 / 多话作品：`章節：23 話`（没有 `頁數：`，图片数要按合并后的 img_list 算）
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct CountLabels {
+    image_count: i64,
+    chapter_count: Option<i64>,
+}
+
+impl CountLabels {
+    fn parse(labels: &[&str], img_list_len: i64) -> CountLabels {
+        let mut page_count = None;
+        let mut chapter_count = None;
+        for text in labels {
+            let text = text.trim();
+            if let Some(rest) = text.strip_prefix("頁數：") {
+                page_count = rest
+                    .trim()
+                    .strip_suffix('P')
+                    .and_then(|count| count.trim().parse::<i64>().ok());
+            } else if let Some(rest) = text.strip_prefix("章節：") {
+                chapter_count = rest
+                    .trim()
+                    .strip_suffix('話')
+                    .and_then(|count| count.trim().parse::<i64>().ok());
+            }
+        }
+        CountLabels {
+            image_count: page_count.unwrap_or(img_list_len),
+            chapter_count,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CountLabels;
+
+    #[test]
+    fn single_comic_uses_page_label() {
+        let labels = ["分類：同人誌／漢化", "頁數：325P", "收藏：428", "編號：wnacg404801"];
+        let counts = CountLabels::parse(&labels, 326);
+        assert_eq!(counts.image_count, 325);
+        assert_eq!(counts.chapter_count, None);
+    }
+
+    #[test]
+    fn series_uses_chapter_label_and_falls_back_to_img_list() {
+        // 合集页面只有 `章節：23 話`，没有 `頁數：`
+        let labels = ["分類：韓漫／合集／合集", "章節：23 話", "狀態：連載中"];
+        let counts = CountLabels::parse(&labels, 917);
+        assert_eq!(counts.image_count, 917);
+        assert_eq!(counts.chapter_count, Some(23));
+    }
+
+    #[test]
+    fn missing_labels_fall_back_to_img_list() {
+        let labels = ["分類：其他"];
+        let counts = CountLabels::parse(&labels, 12);
+        assert_eq!(counts.image_count, 12);
+        assert_eq!(counts.chapter_count, None);
     }
 }

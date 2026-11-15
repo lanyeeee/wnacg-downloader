@@ -27,6 +27,20 @@ use crate::{
 
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+/// 合集章节抓取：同时最多几个章节
+const SERIES_CHAPTER_CONCURRENCY: usize = 2;
+/// 合集章节抓取：两次发起之间至少间隔多久
+const SERIES_CHAPTER_INTERVAL: Duration = Duration::from_millis(300);
+/// 遇到 429 时最多重试几次
+const RATE_LIMIT_RETRIES: u32 = 4;
+
+/// 优先用服务端给的 `Retry-After`，没有就交给调用方做指数退避
+fn retry_after(resp: &reqwest::Response) -> Option<Duration> {
+    let value = resp.headers().get("retry-after")?.to_str().ok()?;
+    let seconds = value.trim().parse::<u64>().ok()?;
+    Some(Duration::from_secs(seconds.clamp(1, 30)))
+}
+
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginResp {
@@ -331,24 +345,40 @@ impl WnacgClient {
             format!("https://{api_domain}{path}")
         };
         let cookie = self.cookie_header();
-        let mut request = self
-            .api_client
-            .read()
-            .get(url)
-            .header("user-agent", UA)
-            .header("referer", format!("https://{api_domain}/"));
-        if !cookie.is_empty() {
-            request = request.header("cookie", cookie);
+        let mut attempt = 0u32;
+        loop {
+            let mut request = self
+                .api_client
+                .read()
+                .get(&url)
+                .header("user-agent", UA)
+                .header("referer", format!("https://{api_domain}/"));
+            if !cookie.is_empty() {
+                request = request.header("cookie", &cookie);
+            }
+            let http_resp = request.send().await?;
+            let status = http_resp.status();
+            if status == StatusCode::TOO_MANY_REQUESTS {
+                if attempt >= RATE_LIMIT_RETRIES {
+                    return Err(anyhow!(
+                        "请求过于频繁（HTTP 429，{path}），已重试 {attempt} 次。请稍等几分钟再试，或在配置里降低并发"
+                    ));
+                }
+                let wait = retry_after(&http_resp)
+                    .unwrap_or_else(|| Duration::from_millis(800 * 2u64.pow(attempt)));
+                tracing::warn!("请求被限流(429)，{wait:?} 后重试: {path}");
+                tokio::time::sleep(wait).await;
+                attempt += 1;
+                continue;
+            }
+            let body = http_resp.text().await?;
+            if status != StatusCode::OK {
+                return Err(anyhow!(
+                    "获取页面失败（HTTP {status}，{path}），请检查登录状态和漫画是否存在"
+                ));
+            }
+            return Ok(body);
         }
-        let http_resp = request.send().await?;
-        let status = http_resp.status();
-        let body = http_resp.text().await?;
-        if status != StatusCode::OK {
-            return Err(anyhow!(
-                "获取页面失败（HTTP {status}，{path}），请检查登录状态和漫画是否存在"
-            ));
-        }
-        Ok(body)
     }
 
     pub async fn search_by_keyword(
@@ -458,12 +488,18 @@ impl WnacgClient {
         Ok(Some(chapters))
     }
 
-    /// 按章节顺序合并各章节的图片列表，最多 3 个章节并发
+    /// 按章节顺序合并各章节的图片列表
+    ///
+    /// 合集动辄几十话，全部并发会被站点按 IP 限流（HTTP 429），所以这里限速：
+    /// 同时最多 2 个章节在跑，每次发起间隔 300ms，遇到 429 由 `get_site_text` 退避重试。
     async fn get_series_img_list(&self, chapters: &[i64]) -> anyhow::Result<ImgList> {
         let mut images = ImgList::default();
-        for chunk in chapters.chunks(3) {
+        for chunk in chapters.chunks(SERIES_CHAPTER_CONCURRENCY) {
             let mut tasks = JoinSet::new();
-            for &chapter in chunk {
+            for (index, &chapter) in chunk.iter().enumerate() {
+                if index > 0 {
+                    tokio::time::sleep(SERIES_CHAPTER_INTERVAL).await;
+                }
                 let client = self.clone();
                 tasks.spawn(async move { (chapter, client.get_img_list(chapter).await) });
             }

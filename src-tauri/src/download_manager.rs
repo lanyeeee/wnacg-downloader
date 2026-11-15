@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::Cursor,
     ops::ControlFlow,
     path::{Path, PathBuf},
@@ -235,11 +235,18 @@ impl DownloadTask {
             tracing::error!(err_title, message = string_chain);
             return;
         }
+        // 合集会把多话的图片列表合并进来，不同话的图片文件名可能重复（都是一串 01.jpg / 02.jpg），
+        // 这种情况下即使开了「使用原始文件名」也必须按序号命名，否则后一话会覆盖前一话
+        let force_index_naming = has_duplicate_image_names(&img_urls);
+        if force_index_naming {
+            tracing::warn!("`{comic_title}` 有重名的图片文件（多半是合集），本次按序号命名");
+        }
         // 逐一创建下载任务
         for (i, url) in img_urls.into_iter().enumerate() {
             let url = url.clone();
             let temp_download_dir = temp_download_dir.clone();
-            let download_img_task = DownloadImgTask::new(self, url, temp_download_dir, i);
+            let download_img_task =
+                DownloadImgTask::new(self, url, temp_download_dir, i, force_index_naming);
             // 创建下载任务
             join_set.spawn(download_img_task.process());
         }
@@ -532,6 +539,8 @@ struct DownloadImgTask {
     url: String,
     temp_download_dir: PathBuf,
     index: usize,
+    /// 合集合并后不同话的图片可能同名（都是 01.jpg 这种），这时必须按序号命名，否则互相覆盖
+    force_index_naming: bool,
 }
 
 impl DownloadImgTask {
@@ -540,6 +549,7 @@ impl DownloadImgTask {
         url: String,
         temp_download_dir: PathBuf,
         index: usize,
+        force_index_naming: bool,
     ) -> Self {
         Self {
             app: download_task.app.clone(),
@@ -548,6 +558,7 @@ impl DownloadImgTask {
             url,
             temp_download_dir,
             index,
+            force_index_naming,
         }
     }
 
@@ -598,7 +609,7 @@ impl DownloadImgTask {
             .next()
             .and_then(|s| s.split('.').next())
             .unwrap_or(&index_filename);
-        let img_filename = if use_original_filename {
+        let img_filename = if use_original_filename && !self.force_index_naming {
             original_filename
         } else {
             &index_filename
@@ -803,4 +814,43 @@ async fn save_img(
     });
     // 在tokio任务中等待rayon任务的完成，避免阻塞worker threads
     receiver.await?
+}
+
+/// 图片列表里是否出现重名的原始文件名（合集合并后很常见：每一话都从 01.jpg 开始）
+fn has_duplicate_image_names(urls: &[String]) -> bool {
+    let mut seen = HashSet::new();
+    urls.iter().any(|url| {
+        let name = url
+            .rsplit('/')
+            .next()
+            .unwrap_or_default()
+            .split('.')
+            .next()
+            .unwrap_or_default();
+        !seen.insert(name.to_owned())
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::has_duplicate_image_names;
+
+    #[test]
+    fn detects_duplicate_names_from_merged_chapters() {
+        let urls = vec![
+            "https://img3.qy0.ru/data/1222/60/01.jpg?verify=a".to_string(),
+            "https://img3.qy0.ru/data/1222/60/02.jpg?verify=b".to_string(),
+            "https://img3.qy0.ru/data/1333/10/01.jpg?verify=c".to_string(),
+        ];
+        assert!(has_duplicate_image_names(&urls));
+    }
+
+    #[test]
+    fn sequential_names_are_fine() {
+        let urls = vec![
+            "https://img3.qy0.ru/data/1222/60/01.jpg?verify=a".to_string(),
+            "https://img3.qy0.ru/data/1222/60/02.jpg?verify=b".to_string(),
+        ];
+        assert!(!has_duplicate_image_names(&urls));
+    }
 }

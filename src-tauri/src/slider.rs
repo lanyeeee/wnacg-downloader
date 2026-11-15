@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context};
 use base64::Engine;
-use image::{DynamicImage, GenericImageView};
+use image::DynamicImage;
 use serde::Deserialize;
 
 /// `GET /index.php?ctl=slider&act=create` 返回的题目
@@ -223,4 +223,112 @@ pub fn now_millis() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    /// 构造一张「已经挖掉一块并压暗」的假题目，缺口在 `hole_x`
+    fn fake_challenge(hole_x: u32) -> SliderChallenge {
+        let (bg_w, bg_h) = (160u32, 60u32);
+        let (piece_size, piece_y) = (20u32, 12u32);
+        let mut bg = image::RgbImage::new(bg_w, bg_h);
+        for (x, y, pixel) in bg.enumerate_pixels_mut() {
+            let v = ((x * 37 + y * 17) % 251) as u8;
+            *pixel = image::Rgb([v, v / 2, 255 - v]);
+        }
+
+        let mut piece = image::RgbaImage::new(piece_size, piece_size);
+        for py in 0..piece_size {
+            for px in 0..piece_size {
+                let source = *bg.get_pixel(hole_x + px, piece_y + py);
+                piece.put_pixel(px, py, image::Rgba([source[0], source[1], source[2], 255]));
+            }
+        }
+        // 站点返回的背景图里，缺口区域是被压暗的
+        for py in 0..piece_size {
+            for px in 0..piece_size {
+                let source = *bg.get_pixel(hole_x + px, piece_y + py);
+                bg.put_pixel(
+                    hole_x + px,
+                    piece_y + py,
+                    image::Rgb([source[0] / 3, source[1] / 3, source[2] / 3]),
+                );
+            }
+        }
+
+        SliderChallenge {
+            token: "test-token".to_string(),
+            bg: encode_png(&image::DynamicImage::ImageRgb8(bg)),
+            piece: encode_png(&image::DynamicImage::ImageRgba8(piece)),
+            y: f64::from(piece_y),
+            w: bg_w,
+            h: bg_h,
+            s: piece_size,
+        }
+    }
+
+    fn encode_png(image: &DynamicImage) -> String {
+        let mut buf = Vec::new();
+        image
+            .write_to(&mut Cursor::new(&mut buf), image::ImageFormat::Png)
+            .expect("encode png");
+        format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(buf)
+        )
+    }
+
+    #[test]
+    fn locate_gap_finds_darkened_hole() {
+        for hole_x in [0u32, 37, 61, 140] {
+            let challenge = fake_challenge(hole_x);
+            let found = locate_gap(&challenge).expect("locate gap");
+            assert_eq!(found, hole_x, "缺口 x 识别错误");
+        }
+    }
+
+    #[test]
+    fn track_is_monotonic_and_ends_at_target() {
+        for seed in [1u64, 7, 42, 99_991] {
+            let target = 137.0f64;
+            let track = build_track(target, seed);
+            assert!(
+                (24..=36).contains(&track.len()),
+                "步数不合理: {}",
+                track.len()
+            );
+            assert_eq!(track[0][1], 0.0);
+            let last = track.last().expect("track not empty");
+            assert!(
+                (last[1] - target).abs() < 0.05,
+                "最后一点必须落在缺口上: {} vs {target}",
+                last[1]
+            );
+
+            let mut prev_t = f64::MIN;
+            let mut prev_x = f64::MIN;
+            for point in &track {
+                assert!(point[0] > prev_t, "时间戳必须递增");
+                assert!(point[1] >= prev_x, "x 不能倒退");
+                assert!(point[1] <= target + 0.01, "x 不能超过缺口");
+                prev_t = point[0];
+                prev_x = point[1];
+            }
+        }
+    }
+
+    #[test]
+    fn track_duration_looks_human() {
+        for seed in [3u64, 17, 128] {
+            let track = build_track(120.0, seed);
+            let total = track.last().expect("track not empty")[0];
+            assert!(
+                (250.0..=1200.0).contains(&total),
+                "拖动总时长不像真人: {total}ms"
+            );
+        }
+    }
 }

@@ -146,4 +146,30 @@ mod tests {
     fn plain_header() {
         assert_eq!(normalize("Cookie: a=1; b=2;\n"), "a=1; b=2");
     }
+
+    #[test]
+    fn netscape_txt() {
+        let raw = "# Netscape HTTP Cookie File\n.wnacg.com\tTRUE\t/\tTRUE\t1826277047\t_ym_uid\t175562317\n";
+        assert_eq!(normalize(raw), "_ym_uid=175562317");
+    }
+
+    #[test]
+    fn last_value_wins() {
+        assert_eq!(normalize("a=1; a=2"), "a=2");
+    }
+
+    #[test]
+    fn set_cookie_headers_are_joined() {
+        let headers = ["sid=abc; Path=/; HttpOnly", "uid=42; Path=/"];
+        assert_eq!(
+            from_set_cookie_headers(headers.iter().copied()),
+            "sid=abc; uid=42"
+        );
+    }
+
+    #[test]
+    fn empty_input_stays_empty() {
+        assert_eq!(normalize("   \n "), "");
+        assert_eq!(normalize("[]"), "");
+    }
 }

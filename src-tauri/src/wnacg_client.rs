@@ -299,32 +299,67 @@ impl WnacgClient {
         Ok(user_profile)
     }
 
+    /// 当前保存的登录态（已规范化）
+    fn cookie_header(&self) -> String {
+        cookie::normalize(&self.app.get_config().read().cookie)
+    }
+
+    /// 只有同源的图片/封面请求才带上账号会话：图床走 URL 里的签名参数，
+    /// 把 cookie 发过去既没用也多一次泄露面。
+    fn same_origin_cookie(&self, url: &str, api_domain: &str) -> Option<String> {
+        let target = reqwest::Url::parse(url).ok()?;
+        let origin = format!("https://{api_domain}/").parse::<reqwest::Url>().ok()?;
+        if target.origin() != origin.origin() {
+            return None;
+        }
+        let cookie = self.cookie_header();
+        (!cookie.is_empty()).then_some(cookie)
+    }
+
+    /// 站点页面统一走这里：带上登录态，失败信息里带上路径方便排查
+    async fn get_site_text(&self, path: &str) -> anyhow::Result<String> {
+        let api_domain = self.api_domain().await;
+        let url = if path.starts_with("http") {
+            path.to_owned()
+        } else {
+            format!("https://{api_domain}{path}")
+        };
+        let cookie = self.cookie_header();
+        let mut request = self
+            .api_client
+            .read()
+            .get(url)
+            .header("user-agent", UA)
+            .header("referer", format!("https://{api_domain}/"));
+        if !cookie.is_empty() {
+            request = request.header("cookie", cookie);
+        }
+        let http_resp = request.send().await?;
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!(
+                "获取页面失败（HTTP {status}，{path}），请检查登录状态和漫画是否存在"
+            ));
+        }
+        Ok(body)
+    }
+
     pub async fn search_by_keyword(
         &self,
         keyword: &str,
         page_num: i64,
     ) -> anyhow::Result<SearchResult> {
-        let params = json!({
-            "q": keyword,
-            "syn": "yes",
-            "f": "_all",
-            "s": "create_time_DESC",
-            "p": page_num,
-        });
         let api_domain = self.api_domain().await;
-        let request = self
-            .api_client
-            .read()
-            .get(format!("https://{api_domain}/search/index.php"))
-            .header("user-agent", UA)
-            .header("referer", format!("https://{api_domain}/"))
-            .query(&params);
-        let http_resp = request.send().await?;
-        let status = http_resp.status();
-        let body = http_resp.text().await?;
-        if status != StatusCode::OK {
-            return Err(anyhow!("预料之外的状态码({status}): {body}"));
-        }
+        let mut url = reqwest::Url::parse(&format!("https://{api_domain}/search/index.php"))
+            .context("拼接搜索地址失败")?;
+        url.query_pairs_mut()
+            .append_pair("q", keyword)
+            .append_pair("syn", "yes")
+            .append_pair("f", "_all")
+            .append_pair("s", "create_time_DESC")
+            .append_pair("p", &page_num.to_string());
+        let body = self.get_site_text(url.as_str()).await?;
         let search_result = SearchResult::from_html(&self.app, &body, false)
             .context(format!("将html解析为SearchResult失败: {body}"))?;
         Ok(search_result)
@@ -335,40 +370,20 @@ impl WnacgClient {
         tag_name: &str,
         page_num: i64,
     ) -> anyhow::Result<SearchResult> {
-        let api_domain = self.api_domain().await;
-        let url = format!("https://{api_domain}/albums-index-page-{page_num}-tag-{tag_name}.html");
-        let request = self
-            .api_client
-            .read()
-            .get(url)
-            .header("user-agent", UA)
-            .header("referer", format!("https://{api_domain}/"));
-        let http_resp = request.send().await?;
-        let status = http_resp.status();
-        let body = http_resp.text().await?;
-        if status != StatusCode::OK {
-            return Err(anyhow!("预料之外的状态码({status}): {body}"));
-        }
+        let body = self
+            .get_site_text(&format!(
+                "/albums-index-page-{page_num}-tag-{tag_name}.html"
+            ))
+            .await?;
         let search_result = SearchResult::from_html(&self.app, &body, true)
             .context(format!("将html解析为SearchResult失败: {body}"))?;
         Ok(search_result)
     }
 
     pub async fn get_img_list(&self, id: i64) -> anyhow::Result<ImgList> {
-        let api_domain = self.api_domain().await;
-        let url = format!("https://{api_domain}/photos-gallery-aid-{id}.html");
-        let request = self
-            .api_client
-            .read()
-            .get(url)
-            .header("user-agent", UA)
-            .header("referer", format!("https://{api_domain}/"));
-        let http_resp = request.send().await?;
-        let status = http_resp.status();
-        let body = http_resp.text().await?;
-        if status != StatusCode::OK {
-            return Err(anyhow!("预料之外的状态码({status}): {body}"));
-        }
+        let body = self
+            .get_site_text(&format!("/photos-gallery-aid-{id}.html"))
+            .await?;
         let img_list_line = body
             .lines()
             .find(|line| line.contains("var imglist = "))
@@ -386,47 +401,30 @@ impl WnacgClient {
             .replace("\\\"", "\"");
         let img_list = serde_json::from_str::<ImgList>(json_str)
             .context(format!("将JSON字符串解析为ImgList失败: {json_str}"))?;
+        if img_list.is_empty() {
+            return Err(anyhow!(
+                "图片列表为空（漫画ID {id}），请确认登录状态或选择具体章节"
+            ));
+        }
         Ok(img_list)
     }
 
     pub async fn get_comic(&self, id: i64) -> anyhow::Result<Comic> {
-        let api_domain = self.api_domain().await;
-        let request = self
-            .api_client
-            .read()
-            .get(format!("https://{api_domain}/photos-index-aid-{id}.html"))
-            .header("user-agent", UA)
-            .header("referer", format!("https://{api_domain}/"));
-        let http_resp = request.send().await?;
-        let status = http_resp.status();
-        let body = http_resp.text().await?;
-        if status != StatusCode::OK {
-            return Err(anyhow!("预料之外的状态码({status}): {body}"));
-        }
+        let body = self
+            .get_site_text(&format!("/photos-index-aid-{id}.html"))
+            .await?;
         let img_list = self.get_img_list(id).await?;
         let comic = Comic::from_html(&self.app, &body, img_list)
             .context(format!("将body和解析为Comic失败: {body}"))?;
-
         Ok(comic)
     }
 
     pub async fn get_shelf(&self, shelf_id: i64, page_num: i64) -> anyhow::Result<GetShelfResult> {
-        let cookie = cookie::normalize(&self.app.get_config().read().cookie);
-        let api_domain = self.api_domain().await;
-        let url = format!("https://{api_domain}/users-users_fav-page-{page_num}-c-{shelf_id}.html");
-        let request = self
-            .api_client
-            .read()
-            .get(url)
-            .header("user-agent", UA)
-            .header("cookie", cookie)
-            .header("referer", format!("https://{api_domain}/"));
-        let http_resp = request.send().await?;
-        let status = http_resp.status();
-        let body = http_resp.text().await?;
-        if status != StatusCode::OK {
-            return Err(anyhow!("预料之外的状态码({status}): {body}"));
-        }
+        let body = self
+            .get_site_text(&format!(
+                "/users-users_fav-page-{page_num}-c-{shelf_id}.html"
+            ))
+            .await?;
         let get_shelf_result = GetShelfResult::from_html(&self.app, &body)
             .context(format!("将body解析为GetShelfResult失败: {body}"))?;
         Ok(get_shelf_result)
@@ -434,12 +432,15 @@ impl WnacgClient {
 
     pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {
         let api_domain = self.api_domain().await;
-        let request = self
+        let mut request = self
             .img_client
             .read()
             .get(url)
             .header("user-agent", UA)
             .header("referer", format!("https://{api_domain}/"));
+        if let Some(cookie) = self.same_origin_cookie(url, &api_domain) {
+            request = request.header("cookie", cookie);
+        }
         let http_resp = request.send().await?;
         let status = http_resp.status();
         if status == StatusCode::TOO_MANY_REQUESTS {
@@ -458,13 +459,15 @@ impl WnacgClient {
 
     pub async fn get_cover_data(&self, cover_url: &str) -> anyhow::Result<Bytes> {
         let api_domain = self.api_domain().await;
-        let http_resp = self
+        let mut request = self
             .cover_client
             .get(cover_url)
             .header("user-agent", UA)
-            .header("referer", format!("https://{api_domain}/"))
-            .send()
-            .await?;
+            .header("referer", format!("https://{api_domain}/"));
+        if let Some(cookie) = self.same_origin_cookie(cover_url, &api_domain) {
+            request = request.header("cookie", cookie);
+        }
+        let http_resp = request.send().await?;
         let status = http_resp.status();
         if status != StatusCode::OK {
             let body = http_resp.text().await?;

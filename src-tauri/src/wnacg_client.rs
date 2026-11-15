@@ -1,4 +1,8 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    collections::HashSet,
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
@@ -7,9 +11,11 @@ use parking_lot::RwLock;
 use reqwest::{Client, StatusCode};
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
+use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::AppHandle;
+use tokio::task::JoinSet;
 
 use crate::{
     config::ProxyMode,
@@ -401,6 +407,9 @@ impl WnacgClient {
             .replace("\\\"", "\"");
         let img_list = serde_json::from_str::<ImgList>(json_str)
             .context(format!("将JSON字符串解析为ImgList失败: {json_str}"))?;
+        // 每话最后都会塞一张「喜欢本站请收藏」的占位图，合集合并后会变成一话一张
+        let mut img_list = img_list;
+        img_list.retain(|img| !is_placeholder_image(&img.url));
         if img_list.is_empty() {
             return Err(anyhow!(
                 "图片列表为空（漫画ID {id}），请确认登录状态或选择具体章节"
@@ -413,10 +422,63 @@ impl WnacgClient {
         let body = self
             .get_site_text(&format!("/photos-index-aid-{id}.html"))
             .await?;
-        let img_list = self.get_img_list(id).await?;
+        // 合集（多章节）在详情页里用 `a[data-chid]` 列出每一话，
+        // 单话作品直接请求 `photos-gallery-aid-{id}` 就是全部图片
+        let img_list = match self.collect_series_chapters(id, &body).await? {
+            Some(chapters) => self.get_series_img_list(&chapters).await?,
+            None => self.get_img_list(id).await?,
+        };
         let comic = Comic::from_html(&self.app, &body, img_list)
             .context(format!("将body和解析为Comic失败: {body}"))?;
         Ok(comic)
+    }
+
+    /// 收集合集的所有章节 ID（按站点顺序），不是合集则返回 None
+    async fn collect_series_chapters(
+        &self,
+        id: i64,
+        first_page_html: &str,
+    ) -> anyhow::Result<Option<Vec<i64>>> {
+        let first_page = SeriesPage::parse(first_page_html)?;
+        if first_page.chapters.is_empty() {
+            return Ok(None);
+        }
+        let last_page = first_page.last_page();
+        let mut chapters = first_page.chapters;
+        for page in 2..=last_page {
+            let body = self
+                .get_site_text(&format!("/photos-index-aid-{id}-page-{page}.html"))
+                .await?;
+            let mut more = SeriesPage::parse(&body)?.chapters;
+            chapters.append(&mut more);
+        }
+        let mut seen = HashSet::new();
+        chapters.retain(|chapter| seen.insert(*chapter));
+        tracing::debug!("合集 {id} 共 {} 个章节", chapters.len());
+        Ok(Some(chapters))
+    }
+
+    /// 按章节顺序合并各章节的图片列表，最多 3 个章节并发
+    async fn get_series_img_list(&self, chapters: &[i64]) -> anyhow::Result<ImgList> {
+        let mut images = ImgList::default();
+        for chunk in chapters.chunks(3) {
+            let mut tasks = JoinSet::new();
+            for &chapter in chunk {
+                let client = self.clone();
+                tasks.spawn(async move { (chapter, client.get_img_list(chapter).await) });
+            }
+            let mut results = Vec::with_capacity(chunk.len());
+            while let Some(result) = tasks.join_next().await {
+                results.push(result.context("合集章节任务异常")?);
+            }
+            // 并发会乱序返回，这里按章节在站点上的顺序合并，避免页序错乱
+            results.sort_by_key(|(chapter, _)| chunk.iter().position(|c| c == chapter).unwrap_or(0));
+            for (chapter, list) in results {
+                let list = list.with_context(|| format!("获取合集章节 {chapter} 的图片列表失败"))?;
+                images.extend(list.0);
+            }
+        }
+        Ok(images)
     }
 
     pub async fn get_shelf(&self, shelf_id: i64, page_num: i64) -> anyhow::Result<GetShelfResult> {
@@ -475,6 +537,68 @@ impl WnacgClient {
         }
         let cover_data = http_resp.bytes().await?;
         Ok(cover_data)
+    }
+}
+
+/// 站点在每话末尾塞的「喜欢本站请收藏」占位图
+fn is_placeholder_image(url: &str) -> bool {
+    url.split('?')
+        .next()
+        .unwrap_or_default()
+        .ends_with("shoucang.jpg")
+}
+
+/// 详情页里的章节列表信息（合集 / 多话作品）
+struct SeriesPage {
+    /// 当前页的章节 id（就是各章节的 `photos-gallery-aid-{id}`），按站点顺序
+    chapters: Vec<i64>,
+    /// 章节总数（`#sr_pub[data-total]`），单话作品没有这个属性，按 0 处理
+    total: usize,
+    /// 每页章节数（`data-per`），站点默认 12
+    per: usize,
+}
+
+impl SeriesPage {
+    fn parse(html: &str) -> anyhow::Result<SeriesPage> {
+        let document = Html::parse_document(html);
+        let chapter_selector =
+            Selector::parse("a[data-chid]").map_err(|_| anyhow!("章节选择器无效"))?;
+        let chapters = document
+            .select(&chapter_selector)
+            .filter_map(|anchor| anchor.value().attr("data-chid")?.parse::<i64>().ok())
+            .collect::<Vec<_>>();
+
+        let mut total = 0usize;
+        let mut per = 12usize;
+        let box_selector = Selector::parse("[data-total][data-per]")
+            .map_err(|_| anyhow!("章节分页选择器无效"))?;
+        if let Some(element) = document.select(&box_selector).next() {
+            let value = element.value();
+            total = value
+                .attr("data-total")
+                .and_then(|total| total.parse().ok())
+                .unwrap_or(0);
+            per = value
+                .attr("data-per")
+                .and_then(|per| per.parse().ok())
+                .filter(|per| *per > 0)
+                .unwrap_or(12);
+        }
+
+        Ok(SeriesPage {
+            chapters,
+            total,
+            per,
+        })
+    }
+
+    /// 章节列表一共几页（一页 12 话）
+    fn last_page(&self) -> usize {
+        let total = self.total.max(self.chapters.len());
+        if total == 0 {
+            return 1;
+        }
+        total.div_ceil(self.per).max(1)
     }
 }
 
@@ -577,5 +701,66 @@ impl ClientBuilderExt for reqwest::ClientBuilder {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_placeholder_image, SeriesPage};
+
+    const SERIES_HTML: &str = r#"
+<html><body>
+  <div class="cc filter sr_filter" id="sr_pub" data-aid="404776" data-page="1"
+       data-total="26" data-per="12"
+       data-pageurl="/photos-index-aid-404776-page-%5B%23page%23%5D.html">
+    <a class="tagshow" data-chid="122260" href="/photos-slide-aid-122260-sid-404776.html">第1話</a>
+    <a class="tagshow" data-chid="136893" href="/photos-slide-aid-136893-sid-404776.html">第2話</a>
+    <a class="tagshow" data-chid="122256" href="/photos-slide-aid-122256-sid-404776.html">第3話</a>
+  </div>
+  <a class="tagshow" href="/albums-index-tag-xxx.html">这只是标签，不是章节</a>
+</body></html>"#;
+
+    #[test]
+    fn series_page_reads_chapters_and_total() {
+        let page = SeriesPage::parse(SERIES_HTML).expect("解析章节列表");
+        assert_eq!(page.chapters, vec![122260, 136893, 122256]);
+        assert_eq!(page.total, 26);
+        assert_eq!(page.per, 12);
+        // 26 话、每页 12 话 => 3 页
+        assert_eq!(page.last_page(), 3);
+    }
+
+    #[test]
+    fn single_chapter_comic_has_no_chapters() {
+        let html = r#"<html><body>
+          <div class="addtags">標籤：<a class="tagshow" href="/albums-index-tag-a.html">tag</a></div>
+        </body></html>"#;
+        let page = SeriesPage::parse(html).expect("解析章节列表");
+        assert!(page.chapters.is_empty());
+        assert_eq!(page.last_page(), 1);
+    }
+
+    #[test]
+    fn last_page_falls_back_to_parsed_chapters() {
+        // 站点没给 data-total 时，用当前页解析到的章节数兜底
+        let html = r#"<html><body>
+          <a data-chid="1">a</a><a data-chid="2">b</a><a data-chid="3">c</a>
+        </body></html>"#;
+        let page = SeriesPage::parse(html).expect("解析章节列表");
+        assert_eq!(page.chapters.len(), 3);
+        assert_eq!(page.last_page(), 1);
+    }
+
+    #[test]
+    fn placeholder_image_detection() {
+        assert!(is_placeholder_image(
+            "//themes/weitu/images/bg/shoucang.jpg"
+        ));
+        assert!(is_placeholder_image(
+            "//themes/weitu/images/bg/shoucang.jpg?verify=1794744000-abc"
+        ));
+        assert!(!is_placeholder_image(
+            "//img3.qy0.ru/data/1222/60/23.jpg?verify=1794744000-abc"
+        ));
     }
 }
